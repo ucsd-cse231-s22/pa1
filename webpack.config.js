@@ -10,6 +10,9 @@ module.exports = {
       },
     ],
   },
+  externals: {
+    wabt: 'wabt'
+  },
   resolve: {
     extensions: ['.ts']
   },

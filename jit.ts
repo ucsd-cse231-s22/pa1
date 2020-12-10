@@ -1,6 +1,6 @@
 // https://github.com/AssemblyScript/wabt.js/
-var wabtModule = (window as any)['WabtModule'];
-wabtModule().then((wabt : any) => {
+import * as wabt from 'wabt';
+wabt().then((wabt : any) => {
 
   // https://developer.mozilla.org/en-US/docs/WebAssembly/Using_the_JavaScript_API
   var importObject = {
