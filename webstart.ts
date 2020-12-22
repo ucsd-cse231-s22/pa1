@@ -2,7 +2,7 @@ import {run} from './jit';
 
 function webStart() {
   document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("run").addEventListener("click", async function(e) {
+    document.getElementById("run").addEventListener("click", function(e) {
       var importObject = {
         imports: {
           imported_func: (arg : any) => {
@@ -15,7 +15,7 @@ function webStart() {
       };
 
       const source = document.getElementById("user-code") as HTMLTextAreaElement;
-      const result = await run(source.value, importObject);
+      run(source.value, importObject).then(() => console.log ("run finished")).catch((e) => console.log("run failed", e));
     });
   });
 }

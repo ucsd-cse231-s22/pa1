@@ -1,6 +1,6 @@
 const path = require('path');
 module.exports = {
-  entry: './jit.ts',
+  entry: './webstart.ts',
   module: {
     rules: [
       {
@@ -19,6 +19,6 @@ module.exports = {
   },
   output: {
     path: path.resolve(__dirname, "build"),
-    filename: 'jit.js'
+    filename: 'webstart.js'
   }
 };
