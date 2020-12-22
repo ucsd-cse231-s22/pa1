@@ -1,3 +1,7 @@
 Useful starter repo for playing with webassembly on a web page.
 
-Build with `npm run build`, then open `build/index.html`
+To view on the web, build with `npm run build-web`, then open
+`build/index.html`
+
+To run from CLI, build with `npm run build-cli`, then run `node
+build/nodestart.js`.
