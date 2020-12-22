@@ -1,7 +1,7 @@
 import sexp from "sexp";
 
 type Stmt = {
-    tag: "assign",
+    tag: "define",
     name: string,
     value: Expr
   }
@@ -22,6 +22,11 @@ type Expr = {
   tag: "num",
   value: number
 }
+|
+{
+  tag: "id",
+  value: string
+}
 
 enum Op { Plus, Minus } ;
 
@@ -31,11 +36,18 @@ function parseExpr(sexp : any) : Expr {
 }
 
 export function parse(sexp : any) : Stmt {
-  if(sexp[0] === "print") {
-    return {
-      tag: "print",
-      value: parseExpr(sexp[1])
-    };
+  switch(sexp[0]) {
+    case "print":
+      return {
+        tag: "print",
+        value: parseExpr(sexp[1])
+      };
+    case "define":
+      return {
+        tag: "define",
+        name: sexp[1],
+        value: parseExpr(sexp[2])
+      }
   }
 }
 
@@ -49,8 +61,13 @@ export function compile(source: string) : string {
 
 function codeGen(stmt : Stmt) : Array<string> {
   switch(stmt.tag) {
+    case "define":
+      var valStmts = codeGenExpr(stmt.value);
+      return valStmts.concat([
+        "call $print"
+      ]);
     case "print":
-      const valStmts = codeGenExpr(stmt.value)
+      var valStmts = codeGenExpr(stmt.value);
       return valStmts.concat([
         "call $print"
       ]);

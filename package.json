@@ -4,7 +4,8 @@
   "description": "A toy JIT using web assembly as the compilation target",
   "main": "index.js",
   "scripts": {
-    "build": "webpack && cp index.html build/"
+    "build-web": "webpack && cp index.html build/",
+    "build-cli": "tsc  nodestart.ts --esModuleInterop --moduleResolution node --outDir cli/"
   },
   "author": "",
   "license": "ISC",
