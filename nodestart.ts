@@ -1,4 +1,4 @@
-import {run} from './jit';
+import {run} from './runner';
 
 async function nodeStart(source : string) {
   var importObject = {
@@ -11,6 +11,6 @@ async function nodeStart(source : string) {
   const result = run(source, importObject);
 }
 
-nodeStart("(print 5)");
-nodeStart("(print 50)");
+nodeStart("(define x 5) (print x)");
+nodeStart("(define y 10) (print y)");
 

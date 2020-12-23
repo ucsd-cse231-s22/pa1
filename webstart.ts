@@ -1,4 +1,4 @@
-import {run} from './jit';
+import {run} from './runner';
 
 function webStart() {
   document.addEventListener("DOMContentLoaded", function() {
