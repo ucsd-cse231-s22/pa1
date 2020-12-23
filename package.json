@@ -10,8 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "lezer": "^0.13.1",
-    "lezer-generator": "^0.13.1",
     "lezer-python": "^0.13.1",
     "lezer-tree": "^0.13.0",
     "ts-loader": "^8.0.11",
