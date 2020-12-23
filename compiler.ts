@@ -68,7 +68,7 @@ function parseStmt(sexp : any) : Stmt {
 }
 
 export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>) : GlobalEnv {
-  const newEnv = new Map();
+  const newEnv = new Map(env.globals);
   var newOffset = env.offset;
   stmts.forEach((s) => {
     switch(s.tag) {
@@ -84,7 +84,12 @@ export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>) : GlobalEnv {
   }
 }
 
-export function compile(source: string, env: GlobalEnv) : string {
+type CompileResult = {
+  wasmSource: string,
+  newEnv: GlobalEnv
+};
+
+export function compile(source: string, env: GlobalEnv) : CompileResult {
   const asSexp = (sexp as any)(`(${source})`);
   console.log(asSexp);
   const ast = parseProgram(asSexp);
@@ -93,7 +98,15 @@ export function compile(source: string, env: GlobalEnv) : string {
   const defines = ast.filter((a) => a.tag == "define");
   const locals = defines.map((a) => (a as any).name);
   const localStmts = locals.map(l => `(local $${l} i32)`);
-  return [].concat.apply(localStmts, ast.map((stmt) => codeGen(stmt, withDefines))).join("\n");
+  return {
+    wasmSource: [].concat.apply(localStmts, ast.map((stmt) => codeGen(stmt, withDefines))).join("\n"),
+    newEnv: withDefines
+  };
+}
+
+function envLookup(env : GlobalEnv, name : string) : number {
+  if(!env.globals.has(name)) { console.log("Could not find " + name + " in ", env); throw new Error("Could not find name " + name); }
+  return (env.globals.get(name) * 4); // 4-byte values
 }
 
 function codeGen(stmt: Stmt, env: GlobalEnv) : Array<string> {
@@ -102,7 +115,7 @@ function codeGen(stmt: Stmt, env: GlobalEnv) : Array<string> {
       var valStmts = codeGenExpr(stmt.value, env);
       return valStmts.concat([
         `(local.set $${stmt.name})`,
-        `(i32.const ${env.globals.get(stmt.name)})`,
+        `(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`,
         `(local.get $${stmt.name})`,
         `(i32.store )`
       ]);
@@ -119,6 +132,6 @@ function codeGenExpr(expr : Expr, env: GlobalEnv) : Array<string> {
     case "num":
       return ["(i32.const " + expr.value + ")"];
     case "id":
-      return [`(i32.const ${env.globals.get(expr.name)})`, `i32.load `]
+      return [`(i32.const ${envLookup(env, expr.name)})`, `i32.load `]
   }
 }

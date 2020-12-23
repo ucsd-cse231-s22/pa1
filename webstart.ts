@@ -1,4 +1,5 @@
 import {run} from './runner';
+import {emptyEnv} from './compiler';
 
 function webStart() {
   document.addEventListener("DOMContentLoaded", function() {
@@ -13,9 +14,10 @@ function webStart() {
           }
         }
       };
+      const env = emptyEnv;
 
       const source = document.getElementById("user-code") as HTMLTextAreaElement;
-      run(source.value, importObject).then(() => console.log ("run finished")).catch((e) => console.log("run failed", e));
+      run(source.value, { importObject, env }).then(() => console.log ("run finished")).catch((e) => console.log("run failed", e));
     });
   });
 }
