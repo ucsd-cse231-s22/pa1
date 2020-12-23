@@ -4,4 +4,4 @@ To view on the web, build with `npm run build-web`, then open
 `build/index.html`
 
 To run from CLI, build with `npm run build-cli`, then run `node
-build/nodestart.js`.
+cli/nodestart.js`.
