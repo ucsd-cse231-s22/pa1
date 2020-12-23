@@ -14,10 +14,13 @@ async function nodeStart(source : string) {
   run(source, { importObject, env });
 }
 
-nodeStart("(define x 5) (print x)");
-nodeStart("(define y 10) (print y)");
+//nodeStart("(define x 5) (print x)");
+nodeStart("x = 5\nprint(x)");
+//nodeStart("(define y 10) (print y)");
+nodeStart("y = 10\nprint(y)");
 
 
+/*
 async function tryRepl() {
   const r = new BasicREPL(importObject);
   await r.run("(define foo 1000)");
@@ -29,3 +32,4 @@ async function tryRepl() {
   await r.run("(print bar)");
 }
 tryRepl();
+*/

@@ -8,7 +8,6 @@ import * as compiler from './compiler';
 
 export async function run(source : string, config: any) : Promise<compiler.GlobalEnv> {
   const wabtInterface = await wabt();
-  console.log("In compile: ", config.env);
   const compiled = compiler.compile(source, config.env);
   const importObject = config.importObject;
   if(!importObject.js) {

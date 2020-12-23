@@ -1,37 +1,9 @@
 import { stringInput } from "lezer-tree";
 import sexp from "sexp";
+import { Stmt, Expr, Op } from "./ast";
+import { parse } from "./parser";
 
 // https://learnxinyminutes.com/docs/wasm/
-
-type Stmt = {
-    tag: "define",
-    name: string,
-    value: Expr
-  }
-  | 
-  {
-    tag: "print",
-    value: Expr
-  }
-
-type Expr = {
-  tag: "op",
-  op: Op,
-  left: Expr,
-  right: Expr
-}
-|
-{
-  tag: "num",
-  value: number
-}
-|
-{
-  tag: "id",
-  name: string
-}
-
-enum Op { Plus, Minus } ;
 
 // Numbers are offsets into global memory
 export type GlobalEnv = {
@@ -47,8 +19,12 @@ function parseExpr(sexp : any) : Expr {
   throw new Error("Could not parse, " + sexp);
 }
 
-export function parseProgram(sexp : any) : Array<Stmt> {
+export function parseSexpProgram(sexp : any) : Array<Stmt> {
   return sexp.map(parseStmt); 
+}
+
+export function parseProgram(source : string) : Array<Stmt> {
+  return parse(source);
 }
 
 function parseStmt(sexp : any) : Stmt {
@@ -90,10 +66,7 @@ type CompileResult = {
 };
 
 export function compile(source: string, env: GlobalEnv) : CompileResult {
-  const asSexp = (sexp as any)(`(${source})`);
-  console.log(asSexp);
-  const ast = parseProgram(asSexp);
-  console.log(ast);
+  const ast = parseProgram(source);
   const withDefines = augmentEnv(env, ast);
   const defines = ast.filter((a) => a.tag == "define");
   const locals = defines.map((a) => (a as any).name);
