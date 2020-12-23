@@ -1,5 +1,4 @@
 import { stringInput } from "lezer-tree";
-import sexp from "sexp";
 import { Stmt, Expr, Op } from "./ast";
 import { parse } from "./parser";
 
@@ -12,36 +11,6 @@ export type GlobalEnv = {
 }
 
 export const emptyEnv = { globals: new Map(), offset: 0 };
-
-function parseExpr(sexp : any) : Expr {
-  if(typeof sexp === "number") { return { tag: "num", value: sexp}; }
-  if(typeof sexp === "string") { return { tag: "id", name: sexp}; }
-  throw new Error("Could not parse, " + sexp);
-}
-
-export function parseSexpProgram(sexp : any) : Array<Stmt> {
-  return sexp.map(parseStmt); 
-}
-
-export function parseProgram(source : string) : Array<Stmt> {
-  return parse(source);
-}
-
-function parseStmt(sexp : any) : Stmt {
-  switch(sexp[0]) {
-    case "print":
-      return {
-        tag: "print",
-        value: parseExpr(sexp[1])
-      };
-    case "define":
-      return {
-        tag: "define",
-        name: sexp[1],
-        value: parseExpr(sexp[2])
-      };
-  }
-}
 
 export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>) : GlobalEnv {
   const newEnv = new Map(env.globals);
@@ -66,7 +35,7 @@ type CompileResult = {
 };
 
 export function compile(source: string, env: GlobalEnv) : CompileResult {
-  const ast = parseProgram(source);
+  const ast = parse(source);
   const withDefines = augmentEnv(env, ast);
   const defines = ast.filter((a) => a.tag == "define");
   const locals = defines.map((a) => (a as any).name);
