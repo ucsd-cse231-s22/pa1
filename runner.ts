@@ -6,6 +6,12 @@
 import wabt from 'wabt';
 import * as compiler from './compiler';
 
+const oldProcessOn = process.on;
+process.on = ((...args : any) : void => {
+  if(args[0] === "uncaughtException") { return; }
+  else { return oldProcessOn.apply(process, args); }
+}) as any;
+
 export async function run(source : string, config: any) : Promise<compiler.GlobalEnv> {
   const wabtInterface = await wabt();
   const compiled = compiler.compile(source, config.env);
@@ -21,7 +27,6 @@ export async function run(source : string, config: any) : Promise<compiler.Globa
       ${compiled.wasmSource}
     )
   )`;
-  console.log(wasmSource);
   const myModule = wabtInterface.parseWat("test.wat", wasmSource);
   var asBinary = myModule.toBinary({});
   var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);

@@ -21,8 +21,6 @@ export class BasicREPL {
     };
   }
   async run(source : string) {
-    console.log("Environment before compile of " + source, this.currentEnv);
-    console.log(this.importObject.js.memory.buffer);
     const newEnv = run(source, {importObject: this.importObject, env: this.currentEnv});
     this.currentEnv = await newEnv;
   }
