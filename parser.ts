@@ -14,6 +14,13 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
         tag: "id",
         name: s.substring(c.node.from, c.node.to)
       }
+    case "BinaryExpression":
+      return {
+        tag: "op",
+        op: Op.Plus,
+        left: traverseExpr(c.node.firstChild.cursor, s),
+        right: traverseExpr(c.node.lastChild.cursor, s)
+      }
     default:
       throw new Error("Could not parse expr at " + c.node.from + " " + c.node.to);
   }

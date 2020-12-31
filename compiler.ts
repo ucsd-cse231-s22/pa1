@@ -65,7 +65,7 @@ function codeGen(stmt: Stmt, env: GlobalEnv) : Array<string> {
       var valStmts = codeGenExpr(stmt.value, env);
       return valStmts.concat([
         "(call $print)"
-      ]);
+      ]);      
   }
 }
 
@@ -75,5 +75,16 @@ function codeGenExpr(expr : Expr, env: GlobalEnv) : Array<string> {
       return ["(i32.const " + expr.value + ")"];
     case "id":
       return [`(i32.const ${envLookup(env, expr.name)})`, `i32.load `]
+    case "op":
+      return codeGenOp(expr.op, expr.left, expr.right, env);
   }
+}
+
+function codeGenOp(op: Op, left: Expr, right: Expr, env: GlobalEnv): Array<string> {
+  var leftStmts = codeGenExpr(left, env);
+  var rightStmts = codeGenExpr(right, env);
+
+  return leftStmts.concat(rightStmts.concat([
+    `(i32.add )`
+  ]));
 }
