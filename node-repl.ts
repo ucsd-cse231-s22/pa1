@@ -11,7 +11,7 @@ const importObject = {
 const r = new pyRepl.BasicREPL(importObject);
 
 function myEval(cmd : string, context : any, filename : string, callback : any) {
-  r.run(cmd).then((r) => callback(null, r)).catch((e) => console.error(e));
+  r.run(cmd).then((r) => { console.log("Result from repl: ", r); callback(null, r) }).catch((e) => console.error(e));
 }
 
 repl.start({ prompt: ">>> ", eval: myEval });

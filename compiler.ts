@@ -38,10 +38,10 @@ export function compile(source: string, env: GlobalEnv) : CompileResult {
   const ast = parse(source);
   const withDefines = augmentEnv(env, ast);
   const defines = ast.filter((a) => a.tag == "define");
-  const locals = defines.map((a) => (a as any).name);
-  const localStmts = locals.map(l => `(local $${l} i32)`);
+  const commandGroups = ast.map((stmt) => codeGen(stmt, withDefines));
+  const commands = [].concat.apply([], commandGroups);
   return {
-    wasmSource: [].concat.apply(localStmts, ast.map((stmt) => codeGen(stmt, withDefines))).join("\n"),
+    wasmSource: commands.join("\n"),
     newEnv: withDefines
   };
 }
@@ -54,13 +54,9 @@ function envLookup(env : GlobalEnv, name : string) : number {
 function codeGen(stmt: Stmt, env: GlobalEnv) : Array<string> {
   switch(stmt.tag) {
     case "define":
+      const locationToStore = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
       var valStmts = codeGenExpr(stmt.value, env);
-      return valStmts.concat([
-        `(local.set $${stmt.name})`,
-        `(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`,
-        `(local.get $${stmt.name})`,
-        `(i32.store )`
-      ]);
+      return locationToStore.concat(valStmts).concat([`(i32.store)`]);
     case "print":
       var valStmts = codeGenExpr(stmt.value, env);
       return valStmts.concat([

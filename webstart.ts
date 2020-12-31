@@ -19,6 +19,18 @@ function webStart() {
     const env = emptyEnv;
     var repl = new BasicREPL(importObject);
 
+    function renderResult(result : any) : void {
+      const elt = document.createElement("pre");
+      document.getElementById("output").appendChild(elt);
+      elt.innerText = String(result);
+    }
+
+    function renderError(result : any) : void {
+      const elt = document.createElement("pre");
+      document.getElementById("output").appendChild(elt);
+      elt.setAttribute("style", "color: red");
+      elt.innerText = String(result);
+    }
 
     function setupRepl() {
       document.getElementById("output").innerHTML = "";
@@ -38,7 +50,8 @@ function webStart() {
           const source = replCodeElement.value;
           elt.value = source;
           replCodeElement.value = "";
-          repl.run(source).then(() => console.log ("run finished")).catch((e) => console.log("run failed", e));;
+          repl.run(source).then((r) => { renderResult(r); console.log ("run finished") })
+              .catch((e) => { renderError(e); console.log("run failed", e) });;
         }
       });
     }
@@ -48,7 +61,8 @@ function webStart() {
       repl = new BasicREPL(importObject);
       const source = document.getElementById("user-code") as HTMLTextAreaElement;
       setupRepl();
-      repl.run(source.value).then(() => console.log ("run finished")).catch((e) => console.log("run failed", e));
+      repl.run(source.value).then((r) => { renderResult(r); console.log ("run finished") })
+          .catch((e) => { renderError(e); console.log("run failed", e) });;
     });
   });
 }

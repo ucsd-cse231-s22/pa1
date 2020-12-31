@@ -14,13 +14,13 @@ import * as compiler from './compiler';
 // to have this support, so we patch it away.
 if(typeof process !== "undefined") {
   const oldProcessOn = process.on;
-  process.on = ((...args : any) : void => {
+  process.on = (...args : any) : any => {
     if(args[0] === "uncaughtException") { return; }
     else { return oldProcessOn.apply(process, args); }
-  }) as any;
+  };
 }
 
-export async function run(source : string, config: any) : Promise<compiler.GlobalEnv> {
+export async function run(source : string, config: any) : Promise<[any, compiler.GlobalEnv]> {
   const wabtInterface = await wabt();
   const compiled = compiler.compile(source, config.env);
   const importObject = config.importObject;
@@ -35,9 +35,11 @@ export async function run(source : string, config: any) : Promise<compiler.Globa
       ${compiled.wasmSource}
     )
   )`;
+  console.log(wasmSource);
   const myModule = wabtInterface.parseWat("test.wat", wasmSource);
   var asBinary = myModule.toBinary({});
   var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);
-  (wasmModule.instance.exports.exported_func as any)();
-  return compiled.newEnv;
+  const result = (wasmModule.instance.exports.exported_func as any)();
+  console.log("Result from WASM: ", result);
+  return [result, compiled.newEnv];
 }

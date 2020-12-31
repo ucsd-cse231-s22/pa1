@@ -2,7 +2,7 @@ import {run} from "./runner";
 import {emptyEnv, GlobalEnv} from "./compiler";
 
 interface REPL {
-  run(source : string) : Promise<void>;
+  run(source : string) : Promise<any>;
 }
 
 export class BasicREPL {
@@ -20,8 +20,9 @@ export class BasicREPL {
       offset: 0
     };
   }
-  async run(source : string) {
-    const newEnv = run(source, {importObject: this.importObject, env: this.currentEnv});
-    this.currentEnv = await newEnv;
+  async run(source : string) : Promise<any> {
+    const [result, newEnv] = await run(source, {importObject: this.importObject, env: this.currentEnv});
+    this.currentEnv = newEnv;
+    return result;
   }
 }

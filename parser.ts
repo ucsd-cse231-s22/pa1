@@ -45,6 +45,12 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt {
           value: traverseExpr(subC.node.lastChild.firstChild.nextSibling.cursor, s)
         };
       }
+      else {
+        return {
+          tag: "expr",
+          expr: traverseExpr(c.node.firstChild.cursor, s)
+        }
+      }
     default:
       throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to);
   }
