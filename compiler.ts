@@ -37,7 +37,6 @@ type CompileResult = {
 export function compile(source: string, env: GlobalEnv) : CompileResult {
   const ast = parse(source);
   const withDefines = augmentEnv(env, ast);
-  const defines = ast.filter((a) => a.tag == "define");
   const commandGroups = ast.map((stmt) => codeGen(stmt, withDefines));
   const commands = [].concat.apply([], commandGroups);
   return {
@@ -62,6 +61,8 @@ function codeGen(stmt: Stmt, env: GlobalEnv) : Array<string> {
       return valStmts.concat([
         "(call $print)"
       ]);      
+    case "expr":
+      return codeGenExpr(stmt.expr, env);
   }
 }
 
