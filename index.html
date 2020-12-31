@@ -5,6 +5,17 @@
     <script src="https://cdn.jsdelivr.net/gh/AssemblyScript/wabt.js@1.0.20/index.js"></script>
     <script>const wabt = WabtModule;</script>
     <script src="webstart.js"></script>
+    <style>
+        .repl-code {
+            height: 2em;
+            width: 30em;
+            text-align: left;
+            font-family: monospace;
+        }
+        .prompt {
+            vertical-align: middle;
+        }
+    </style>
 </head>
 
 <body>
@@ -12,7 +23,10 @@
     <button id="run">Run!</button>
 
     <div id="output">
-
+    </div>
+    <div id="repl-entry">
+        <span class="prompt"><code>»</code></span>
+        <input type="text" id="next-code" class="repl-code"></textarea>
     </div>
 </body>
 
