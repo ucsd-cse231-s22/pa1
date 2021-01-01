@@ -39,11 +39,19 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt {
     case "ExpressionStatement":
       const subC = c.node.firstChild.cursor;
       if(subC.node.type.name === "CallExpression") {
-        return {
-          tag: "print",
-          // LOL TODO: not this
-          value: traverseExpr(subC.node.lastChild.firstChild.nextSibling.cursor, s)
-        };
+        const subSubC = subC.node.firstChild.cursor
+        const callName = s.substring(subSubC.from, subSubC.to);
+        if (callName === "globals") {
+          return {
+            tag: "globals"
+          };
+        } else if (callName === "print") {
+          return {
+            tag: "print",
+            // LOL TODO: not this
+            value: traverseExpr(subC.node.lastChild.firstChild.nextSibling.cursor, s)
+          };
+        }
       }
       else {
         return {

@@ -14,6 +14,10 @@ export type Stmt = {
     tag: "expr",
     expr: Expr
   }
+  |
+  {
+    tag: "globals"
+  }
 
 export type Expr = {
     tag: "op",

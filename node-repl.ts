@@ -1,4 +1,5 @@
 import * as repl from 'repl';
+import { GlobalEnv } from './compiler';
 import * as pyRepl from './repl';
 
 const importObject = {

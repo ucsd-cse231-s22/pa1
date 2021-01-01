@@ -30,6 +30,7 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   }
   const wasmSource = `(module
     (func $print (import "imports" "imported_func") (param i32))
+    (func $printglobal (import "imports" "print_global_func") (param i32) (param i32))
     (import "js" "memory" (memory 1))
     (func (export "exported_func")
       ${compiled.wasmSource}

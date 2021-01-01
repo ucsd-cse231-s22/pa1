@@ -1,6 +1,6 @@
 const python = require('lezer-python');
 
-const input = "5";
+const input = "globals()";
 
 const tree = python.parser.parse(input);
 
