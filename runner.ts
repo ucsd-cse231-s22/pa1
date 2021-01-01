@@ -5,6 +5,7 @@
 
 import wabt from 'wabt';
 import * as compiler from './compiler';
+import {parse} from './parser';
 
 // NOTE(joe): This is a hack to get the CLI Repl to run. WABT registers a global
 // uncaught exn handler, and this is not allowed when running the REPL
@@ -22,6 +23,11 @@ if(typeof process !== "undefined") {
 
 export async function run(source : string, config: any) : Promise<[any, compiler.GlobalEnv]> {
   const wabtInterface = await wabt();
+  const parsed = parse(source);
+  var returnType = "";
+  if(parsed[parsed.length - 1].tag === "expr") {
+    returnType = "(result i32)";
+  }
   const compiled = compiler.compile(source, config.env);
   const importObject = config.importObject;
   if(!importObject.js) {
@@ -32,7 +38,7 @@ export async function run(source : string, config: any) : Promise<[any, compiler
     (func $print (import "imports" "imported_func") (param i32))
     (func $printglobal (import "imports" "print_global_func") (param i32) (param i32))
     (import "js" "memory" (memory 1))
-    (func (export "exported_func")
+    (func (export "exported_func") ${returnType}
       ${compiled.wasmSource}
     )
   )`;

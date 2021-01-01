@@ -20,6 +20,7 @@ function webStart() {
     var repl = new BasicREPL(importObject);
 
     function renderResult(result : any) : void {
+      if(result === undefined) { console.log("skip"); return; }
       const elt = document.createElement("pre");
       document.getElementById("output").appendChild(elt);
       elt.innerText = String(result);
