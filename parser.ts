@@ -3,64 +3,85 @@ import {Tree, TreeCursor} from "lezer-tree";
 import {Expr, Stmt, Op} from "./ast";
 
 export function traverseExpr(c : TreeCursor, s : string) : Expr {
-  switch(c.node.type.name) {
+  switch(c.type.name) {
     case "Number":
       return {
         tag: "num",
-        value: Number(s.substring(c.node.from, c.node.to))
+        value: Number(s.substring(c.from, c.to))
       }
     case "VariableName":
       return {
         tag: "id",
-        name: s.substring(c.node.from, c.node.to)
+        name: s.substring(c.from, c.to)
       }
     case "BinaryExpression":
+      c.firstChild();
+      const left = traverseExpr(c, s);
+      c.nextSibling(); // Here we would look at this value to get the operator
+      c.nextSibling();
+      const right = traverseExpr(c, s);
+      c.parent();
       return {
         tag: "op",
         op: Op.Plus,
-        left: traverseExpr(c.node.firstChild.cursor, s),
-        right: traverseExpr(c.node.lastChild.cursor, s)
+        left: left,
+        right: right
       }
     default:
-      throw new Error("Could not parse expr at " + c.node.from + " " + c.node.to);
+      throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
 }
 
 export function traverseStmt(c : TreeCursor, s : string) : Stmt {
   switch(c.node.type.name) {
     case "AssignStatement":
-      const nameChild = c.node.firstChild;
-      const valChild = c.node.lastChild;
+      c.firstChild(); // go to name
+      const name = s.substring(c.from, c.to);
+      c.nextSibling(); // go to equals
+      c.nextSibling(); // go to value
+      const value = traverseExpr(c, s);
+      c.parent();
       return {
         tag: "define",
-        name: s.substring(nameChild.from, nameChild.to),
-        value: traverseExpr(valChild.cursor, s)
+        name: name,
+        value: value
       }
     case "ExpressionStatement":
-      const subC = c.node.firstChild.cursor;
-      if(subC.node.type.name === "CallExpression") {
-        const subSubC = subC.node.firstChild.cursor
-        const callName = s.substring(subSubC.from, subSubC.to);
+      c.firstChild();
+      let childName = c.node.type.name;
+      if((childName as any) === "CallExpression") { // Note(Joe): hacking around typescript here; it doesn't know about state
+        c.firstChild();
+        const callName = s.substring(c.from, c.to);
         if (callName === "globals") {
+          c.parent();
+          c.parent();
           return {
             tag: "globals"
           };
         } else if (callName === "print") {
+          c.nextSibling(); // go to arglist
+          c.firstChild(); // go into arglist
+          c.nextSibling(); // find single argument in arglist
+          const arg = traverseExpr(c, s);
+          c.parent(); // pop arglist
+          c.parent(); // pop expressionstmt
           return {
             tag: "print",
             // LOL TODO: not this
-            value: traverseExpr(subC.node.lastChild.firstChild.nextSibling.cursor, s)
+            value: arg
           };
         }
       }
       else {
+        const expr = traverseExpr(c, s);
+        c.parent(); // pop going into stmt
         return {
           tag: "expr",
-          expr: traverseExpr(c.node.firstChild.cursor, s)
+          expr: expr
         }
       }
     default:
-      throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to);
+      throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
   }
 }
 
