@@ -1,5 +1,5 @@
 import {BasicREPL} from './repl';
-import {emptyEnv} from './compiler';
+import {emptyEnv, GlobalEnv} from './compiler';
 import { output } from './webpack.config';
 
 
@@ -13,7 +13,21 @@ function webStart() {
           const elt = document.createElement("pre");
           document.getElementById("output").appendChild(elt);
           elt.innerText = arg;
+        },
+
+        print_global_func: (pos: number, value: number) => {
+          var name = importObject.nameMap[pos];
+          var msg = name + " = " + value;
+          renderResult(msg);
         }
+      },
+    
+      nameMap: new Array<string>(),
+    
+      updateNameMap : (env : GlobalEnv) => {
+        env.globals.forEach((pos, name) => {
+          importObject.nameMap[pos] = name;
+        })
       }
     };
     const env = emptyEnv;

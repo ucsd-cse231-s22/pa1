@@ -1,5 +1,5 @@
 import {run} from "./runner";
-import {emptyEnv, GlobalEnv, globalEnv} from "./compiler";
+import {emptyEnv, GlobalEnv} from "./compiler";
 import {BasicREPL} from "./repl";
 
 const importObject = {
@@ -8,20 +8,21 @@ const importObject = {
       console.log("Logging from WASM: ", arg);
     },
 
-    // TODO: this is not a good solution for printing globals
-    // 1) we shouldn't have to pass the environment as a global value
-    // 2) as of right now there's no reason why the environment should be a map
-    //    instead it looks like it's just an array
-    print_global_func: (pos: Number, value: Number) => {
-      globalEnv.globals.forEach((mpos, name) => {
-        if (mpos == pos) {
-          console.log(name, "=", value);
-        }
-      });
+    print_global_func: (pos: number, value: number) => {
+      var name = importObject.nameMap[pos];
+      console.log(name, "=", value);
     }
+  },
 
+  nameMap: new Array<string>(),
+
+  updateNameMap : (env : GlobalEnv) => {
+    env.globals.forEach((pos, name) => {
+      importObject.nameMap[pos] = name;
+    })
   }
 };
+
 async function nodeStart(source : string) {
   const env = emptyEnv;
   run(source, { importObject, env });

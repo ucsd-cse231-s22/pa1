@@ -12,8 +12,6 @@ export type GlobalEnv = {
 
 export const emptyEnv = { globals: new Map(), offset: 0 };
 
-export var globalEnv = emptyEnv;
-
 export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>) : GlobalEnv {
   const newEnv = new Map(env.globals);
   var newOffset = env.offset;
@@ -67,7 +65,6 @@ function codeGen(stmt: Stmt, env: GlobalEnv) : Array<string> {
       return codeGenExpr(stmt.expr, env);
     case "globals":
       var globalStmts : Array<string> = [];
-      globalEnv = env;
       env.globals.forEach((pos, name) => {
         globalStmts.push(
           `(i32.const ${pos})`,
