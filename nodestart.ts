@@ -11,7 +11,15 @@ const importObject = {
     print_global_func: (pos: number, value: number) => {
       var name = importObject.nameMap[pos];
       console.log(name, "=", value);
-    }
+    },
+
+    // print_globals_func: () => {
+    //   var env : GlobalEnv = (importObject as any).env;
+    //   env.globals.forEach((pos, name) => {
+    //     var value = new Uint32Array((importObject as any).js.memory.buffer)[pos];
+    //     console.log(name, "=", value);
+    //   });
+    // }
   },
 
   nameMap: new Array<string>(),
