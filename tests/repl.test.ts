@@ -1,50 +1,35 @@
-/*
-import { BasicREPL } from '../repl';
-import { GlobalEnv } from '../compiler';
+import { run } from '../runner';
 import { expect } from 'chai';
 import 'mocha';
 
-
 const importObject = {
   imports: {
-    imported_func: (arg : any) => {
-      console.log("Logging from WASM: ", arg);
+    print: (arg : any) => {
+      importObject.output += arg;
+      importObject.output += "\n";
+      return arg;
     },
-
-    print_global_func: (pos: number, value: number) => {
-      var name = importObject.nameMap[pos];
-      console.log(name, "=", value);
-    },
-
-    // print_globals_func: () => {
-    //   var env : GlobalEnv = (importObject as any).env;
-    //   env.globals.forEach((pos, name) => {
-    //     var value = new Uint32Array((importObject as any).js.memory.buffer)[pos];
-    //     console.log(name, "=", value);
-    //   });
-    // }
   },
 
-  nameMap: new Array<string>(),
-
-  updateNameMap : (env : GlobalEnv) => {
-    env.globals.forEach((pos, name) => {
-      importObject.nameMap[pos] = name;
-    })
-  }
+  output: ""
 };
 
 describe('run function', () => {
-  const r = new BasicREPL(importObject);
-
-  it('returns the same number', async () => {
-    const result = await r.run("987");
+  const config = { importObject };
+  it('returns the right number', async () => {
+    const result = await run("987", config);
     expect(result).to.equal(987);
   });
 
+
+  it('prints two numbers but returns last one', async () => {
+    const result = await run("print(987)\nprint(123)", config);
+    expect(config.importObject.output).to.equal("987\n123\n");
+    expect(result).to.equal(123);
+  });
+
   it('adds two numbers', async() => {
-    const result = await r.run("2 + 3");
+    const result = await run("2 + 3", config);
     expect(result).to.equal(5);
   });
 });
-*/
