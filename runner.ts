@@ -21,14 +21,14 @@ if(typeof process !== "undefined") {
   };
 }
 
-export async function run(source : string, config: any) : Promise<[any, compiler.GlobalEnv]> {
+export async function run(source : string, config: any) : Promise<number> {
   const wabtInterface = await wabt();
   const parsed = parse(source);
   var returnType = "";
   if(parsed[parsed.length - 1].tag === "expr") {
     returnType = "(result i32)";
   }
-  const compiled = compiler.compile(source, config.env);
+  const compiled = compiler.compile(source);
   const importObject = config.importObject;
   if(!importObject.js) {
     const memory = new WebAssembly.Memory({initial:10, maximum:100});
@@ -36,7 +36,6 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   }
   const wasmSource = `(module
     (func $print (import "imports" "imported_func") (param i32))
-    (func $printglobal (import "imports" "print_global_func") (param i32) (param i32))
     (import "js" "memory" (memory 1))
     (func (export "exported_func") ${returnType}
       ${compiled.wasmSource}
@@ -46,5 +45,5 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   var asBinary = myModule.toBinary({});
   var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);
   const result = (wasmModule.instance.exports.exported_func as any)();
-  return [result, compiled.newEnv];
+  return result;
 }

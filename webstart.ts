@@ -1,6 +1,4 @@
-import {BasicREPL} from './repl';
-import {emptyEnv, GlobalEnv} from './compiler';
-import { output } from './webpack.config';
+import {run} from './runner';
 
 
 function webStart() {
@@ -15,23 +13,9 @@ function webStart() {
           elt.innerText = arg;
         },
 
-        print_global_func: (pos: number, value: number) => {
-          var name = importObject.nameMap[pos];
-          var msg = name + " = " + value;
-          renderResult(msg);
-        }
       },
     
-      nameMap: new Array<string>(),
-    
-      updateNameMap : (env : GlobalEnv) => {
-        env.globals.forEach((pos, name) => {
-          importObject.nameMap[pos] = name;
-        })
-      }
     };
-    const env = emptyEnv;
-    var repl = new BasicREPL(importObject);
 
     function renderResult(result : any) : void {
       if(result === undefined) { console.log("skip"); return; }
@@ -47,36 +31,9 @@ function webStart() {
       elt.innerText = String(result);
     }
 
-    function setupRepl() {
-      document.getElementById("output").innerHTML = "";
-      const replCodeElement = document.getElementById("next-code") as HTMLInputElement;
-      replCodeElement.addEventListener("keypress", (e) => {
-        if(e.key === "Enter") {
-          const output = document.createElement("div");
-          const prompt = document.createElement("span");
-          prompt.innerText = "»";
-          output.appendChild(prompt);
-          const elt = document.createElement("input");
-          elt.type = "text";
-          elt.disabled = true;
-          elt.className = "repl-code";
-          output.appendChild(elt);
-          document.getElementById("output").appendChild(output);
-          const source = replCodeElement.value;
-          elt.value = source;
-          replCodeElement.value = "";
-          repl.run(source).then((r) => { renderResult(r); console.log ("run finished") })
-              .catch((e) => { renderError(e); console.log("run failed", e) });;
-        }
-      });
-    }
-
-
     document.getElementById("run").addEventListener("click", function(e) {
-      repl = new BasicREPL(importObject);
       const source = document.getElementById("user-code") as HTMLTextAreaElement;
-      setupRepl();
-      repl.run(source.value).then((r) => { renderResult(r); console.log ("run finished") })
+      run(source.value, {importObject}).then((r) => { renderResult(r); console.log ("run finished") })
           .catch((e) => { renderError(e); console.log("run failed", e) });;
     });
   });
