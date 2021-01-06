@@ -14,18 +14,26 @@ const importObject = {
   output: ""
 };
 
-describe('run function', () => {
+describe('run(source, config) function', () => {
   const config = { importObject };
+
+  // suppress console logging so output of mocha is clear
+  before(function () {
+    console.log = function () {};
+  });
+  
   it('returns the right number', async () => {
     const result = await run("987", config);
     expect(result).to.equal(987);
   });
 
-
   it('prints two numbers but returns last one', async () => {
-    const result = await run("print(987)\nprint(123)", config);
-    expect(config.importObject.output).to.equal("987\n123\n");
+    var result = await run("print(987)", config);
+    expect(result).to.equal(987);
+    result = await run("print(123)", config);
     expect(result).to.equal(123);
+    
+    expect(config.importObject.output).to.equal("987\n123\n");
   });
 
   it('adds two numbers', async() => {
