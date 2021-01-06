@@ -6,7 +6,7 @@ function webStart() {
 
     var importObject = {
       imports: {
-        imported_func: (arg : any) => {
+        print: (arg : any) => {
           console.log("Logging from WASM: ", arg);
           const elt = document.createElement("pre");
           document.getElementById("output").appendChild(elt);

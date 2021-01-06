@@ -34,11 +34,6 @@ function codeGen(stmt: Stmt) : Array<string> {
     case "define":
       var valStmts = codeGenExpr(stmt.value);
       return valStmts.concat([`(local.set $${stmt.name})`]);
-    case "print":
-      var valStmts = codeGenExpr(stmt.value);
-      return valStmts.concat([
-        "(call $print)"
-      ]);      
     case "expr":
       return codeGenExpr(stmt.expr);
   }
@@ -46,6 +41,9 @@ function codeGen(stmt: Stmt) : Array<string> {
 
 function codeGenExpr(expr : Expr) : Array<string> {
   switch(expr.tag) {
+    case "builtin1":
+      const argStmts = codeGenExpr(expr.arg);
+      return argStmts.concat([`(call $${expr.name})`]);
     case "num":
       return ["(i32.const " + expr.value + ")"];
     case "id":

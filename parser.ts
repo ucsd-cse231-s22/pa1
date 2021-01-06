@@ -14,6 +14,21 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
         tag: "id",
         name: s.substring(c.from, c.to)
       }
+    case "CallExpression":
+        c.firstChild();
+        const callName = s.substring(c.from, c.to);
+        c.nextSibling(); // go to arglist
+        c.firstChild(); // go into arglist
+        c.nextSibling(); // find single argument in arglist
+        const arg = traverseExpr(c, s);
+        c.parent(); // pop arglist
+        c.parent(); // pop CallExpression
+        return {
+          tag: "builtin1",
+          name: callName,
+          arg: arg
+        };
+
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
@@ -35,32 +50,9 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt {
       }
     case "ExpressionStatement":
       c.firstChild();
-      let childName = c.node.type.name;
-      if((childName as any) === "CallExpression") { // Note(Joe): hacking around typescript here; it doesn't know about state
-        c.firstChild();
-        const callName = s.substring(c.from, c.to);
-        if (callName === "print") {
-          c.nextSibling(); // go to arglist
-          c.firstChild(); // go into arglist
-          c.nextSibling(); // find single argument in arglist
-          const arg = traverseExpr(c, s);
-          c.parent(); // pop arglist
-          c.parent(); // pop CallExpression
-          c.parent(); // pop ExpressionStmt
-          return {
-            tag: "print",
-            value: arg
-          };
-        }
-      }
-      else {
-        const expr = traverseExpr(c, s);
-        c.parent(); // pop going into stmt
-        return {
-          tag: "expr",
-          expr: expr
-        }
-      }
+      const expr = traverseExpr(c, s);
+      c.parent(); // pop going into stmt
+      return { tag: "expr", expr: expr }
     default:
       throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
   }

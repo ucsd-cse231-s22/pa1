@@ -2,7 +2,7 @@ import {run} from "./runner";
 
 const importObject = {
   imports: {
-    imported_func: (arg : any) => {
+    print: (arg : any) => {
       console.log("Logging from WASM: ", arg);
     },
   }
