@@ -1,5 +1,5 @@
 import {parser} from "lezer-python";
-import {Tree, TreeCursor} from "lezer-tree";
+import {TreeCursor} from "lezer-tree";
 import {Expr, Stmt} from "./ast";
 
 export function traverseExpr(c : TreeCursor, s : string) : Expr {
