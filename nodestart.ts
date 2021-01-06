@@ -4,6 +4,7 @@ const importObject = {
   imports: {
     print: (arg : any) => {
       console.log("Logging from WASM: ", arg);
+      return arg;
     },
   }
 };

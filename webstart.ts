@@ -3,7 +3,6 @@ import {run} from './runner';
 
 function webStart() {
   document.addEventListener("DOMContentLoaded", function() {
-
     var importObject = {
       imports: {
         print: (arg : any) => {
@@ -11,10 +10,9 @@ function webStart() {
           const elt = document.createElement("pre");
           document.getElementById("output").appendChild(elt);
           elt.innerText = arg;
+          return arg;
         },
-
       },
-    
     };
 
     function renderResult(result : any) : void {
@@ -33,6 +31,7 @@ function webStart() {
 
     document.getElementById("run").addEventListener("click", function(e) {
       const source = document.getElementById("user-code") as HTMLTextAreaElement;
+      const output = document.getElementById("output").innerHTML = "";
       run(source.value, {importObject}).then((r) => { renderResult(r); console.log ("run finished") })
           .catch((e) => { renderError(e); console.log("run failed", e) });;
     });

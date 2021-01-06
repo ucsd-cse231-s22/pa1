@@ -25,15 +25,19 @@ export async function run(source : string, config: any) : Promise<number> {
   const wabtInterface = await wabt();
   const parsed = parse(source);
   var returnType = "";
-  if(parsed[parsed.length - 1].tag === "expr") {
+  var returnExpr = "";
+  const lastExpr = parsed[parsed.length - 1]
+  if(lastExpr.tag === "expr") {
     returnType = "(result i32)";
+    returnExpr = "(local.get $$last)"
   }
   const compiled = compiler.compile(source);
   const importObject = config.importObject;
   const wasmSource = `(module
-    (func $print (import "imports" "print") (param i32))
+    (func $print (import "imports" "print") (param i32) (result i32))
     (func (export "exported_func") ${returnType}
       ${compiled.wasmSource}
+      ${returnExpr}
     )
   )`;
   const myModule = wabtInterface.parseWat("test.wat", wasmSource);

@@ -11,16 +11,20 @@ type CompileResult = {
 
 export function compile(source: string) : CompileResult {
   const ast = parse(source);
-  // TODO(joe): make a set? What's the best pedagogic decision?
-  const localDefines : Array<string> = [];
+  const definedVars = new Set();
   ast.forEach(s => {
     switch(s.tag) {
       case "define":
-        localDefines.push(`(local $${s.name} i32)`);
+        definedVars.add(s.name);
         break;
     }
   }); 
-
+  const scratchVar : string = `(local $$last i32)`;
+  const localDefines = [scratchVar];
+  definedVars.forEach(v => {
+    localDefines.push(`(local $${v} i32)`);
+  })
+  
   const commandGroups = ast.map((stmt) => codeGen(stmt));
   const commands = localDefines.concat([].concat.apply([], commandGroups));
   console.log("Generated: ", commands.join("\n"));
@@ -35,7 +39,8 @@ function codeGen(stmt: Stmt) : Array<string> {
       var valStmts = codeGenExpr(stmt.value);
       return valStmts.concat([`(local.set $${stmt.name})`]);
     case "expr":
-      return codeGenExpr(stmt.expr);
+      var exprStmts = codeGenExpr(stmt.expr);
+      return exprStmts.concat([`(local.set $$last)`]);
   }
 }
 
