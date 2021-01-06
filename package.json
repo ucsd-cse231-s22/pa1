@@ -6,7 +6,8 @@
   "scripts": {
     "build-web": "webpack && cp index.html build/",
     "build-cli": "tsc nodestart.ts --esModuleInterop --moduleResolution node --outDir cli/",
-    "build-cli-repl": "tsc node-repl.ts --esModuleInterop --moduleResolution node --outDir cli/"
+    "build-cli-repl": "tsc node-repl.ts --esModuleInterop --moduleResolution node --outDir cli/",
+    "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' mocha -r ts-node/register 'tests/**/*.test.ts'"
   },
   "author": "",
   "license": "ISC",
@@ -14,11 +15,16 @@
     "lezer-python": "^0.13.1",
     "lezer-tree": "^0.13.0",
     "ts-loader": "^8.0.11",
+    "ts-node": "^9.1.1",
     "typescript": "^4.1.2",
     "wabt": "^1.0.20",
     "webpack": "^5.10.0"
   },
   "devDependencies": {
+    "@types/chai": "^4.2.14",
+    "@types/mocha": "^8.2.0",
+    "chai": "^4.2.0",
+    "mocha": "^8.2.1",
     "webpack-cli": "^4.2.0"
   }
 }
