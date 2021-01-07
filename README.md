@@ -113,8 +113,8 @@ from the beginning?
 
 ## Submission
 
-You can submit your code to the `pa1` assignment on Gradescope, which will be
-released Friday and has a set of autograder tests to check your work.
+You can submit your code to the `pa1` assignment on Gradescope (released
+soon).
 
 ## Grading
 
