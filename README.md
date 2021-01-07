@@ -125,3 +125,13 @@ questions.
 
 - 90% Autograder Tests
 - 10% Written Responses
+
+## Useful References
+
+- Lezer, particularly TreeCursor
+[https://lezer.codemirror.net/docs/ref/#tree.TreeCursor](https://lezer.codemirror.net/docs/ref/#tree.TreeCursor),
+which we are using for a parser library
+- lezer-python, which is an open-source grammar for Python developed for lezer [https://github.com/lezer-parser/python/blob/master/src/python.grammar](https://github.com/lezer-parser/python/blob/master/src/python.grammar)
+- Typescript [https://www.typescriptlang.org/docs](https://www.typescriptlang.org/docs)
+- A useful WASM quick tutorial [https://learnxinyminutes.com/docs/wasm/](https://learnxinyminutes.com/docs/wasm/)
+- A description of tagged unions in Typescript [https://basarat.gitbook.io/typescript/type-system/discriminated-unions](https://basarat.gitbook.io/typescript/type-system/discriminated-unions), which is how the AST we chose is structured
