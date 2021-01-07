@@ -57,7 +57,7 @@ describe('run(source, config) function', () => {
   });
 
   // Note: it is often helpful to write tests for a functionality before you
-  // implement it. 
+  // implement it. You will make this test pass!
   it('adds two numbers', async() => {
     const result = await run("2 + 3", config);
     expect(result).to.equal(5);
