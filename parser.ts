@@ -1,6 +1,27 @@
 import {parser} from "lezer-python";
 import {TreeCursor} from "lezer-tree";
-import {BinOp, Expr, Stmt} from "./ast";
+import {BinOp, Expr, Stmt, UnOp} from "./ast";
+
+export function traverseArgs(c: TreeCursor, s: string): Array<Expr> {
+  // c is the subtree of the arglist
+  const args = [];
+  c.firstChild(); // (
+  // c.nextSibling(); // the first arg
+  // do {
+  //   if (c.type.name !== ",") {
+  //     args.push(traverseExpr(c, s));
+  //   }
+  //   c.nextSibling();
+  // } while (c.type.name !== ")")
+  while (c.nextSibling()) {
+    // better logic to skip (,)
+    args.push(traverseExpr(c, s));
+    c.nextSibling();
+  }
+  c.parent();
+  return args;
+}
+
 
 export function traverseExpr(c : TreeCursor, s : string) : Expr {
   switch(c.type.name) {
@@ -18,16 +39,36 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
       c.firstChild();
       const callName = s.substring(c.from, c.to);
       c.nextSibling(); // go to arglist
-      c.firstChild(); // go into arglist
-      c.nextSibling(); // find single argument in arglist
-      const arg = traverseExpr(c, s);
-      c.parent(); // pop arglist
+      const args = traverseArgs(c, s);
+      // c.firstChild(); // go into arglist
+      // c.nextSibling(); // find single argument in arglist
+      // const arg = traverseExpr(c, s);
+      // c.parent(); // pop arglist
       c.parent(); // pop CallExpression
-      return {
-        tag: "builtin1",
-        name: callName,
-        arg: arg
-      };
+      if (args.length === 1) {
+        if (!(["print", "abs"].includes(callName))) {
+          throw new Error("PARSE ERROR: unsupported builtin1");
+        }
+        return {
+          tag: "builtin1",
+          name: callName,
+          arg: args[0]
+        };
+      }
+      else if (args.length === 2) {
+        if (!(["max", "min", "pow"].includes(callName))) {
+          throw new Error("PARSE ERROR: unsupported builtin2");
+        }
+        return {
+          tag: "builtin2",
+          name: callName,
+          arg1: args[0],
+          arg2: args[1]
+        };
+      }
+      else {
+        throw new Error("PARSE ERROR: unsupported number of args");
+      }
     case "BinaryExpression":
       c.firstChild(); // go to left arg 
       const left = traverseExpr(c, s);
@@ -56,6 +97,23 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
         left: left,
         right: right
       };
+    case "UnaryExpression":
+      c.firstChild();
+      var uop: UnOp;
+      switch (s.substring(c.from, c.to)) {
+        case "-":
+          uop = UnOp.Minus;
+          break;
+        case "+":
+          uop = UnOp.Plus;
+          break;
+        default:
+          throw new Error("PARSE ERROR: unknown unary operator");
+      }
+      c.nextSibling(); // go to right arg
+      const uarg = traverseExpr(c, s);
+      c.parent();
+      return { tag: "unexpr", op: uop, arg: uarg };
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
