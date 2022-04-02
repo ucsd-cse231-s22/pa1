@@ -2,3 +2,12 @@ node_modules
 build
 cli
 *.sw*
+
+# add
+.vscode
+dist
+printtree*
+debug*
+compiler.js
+ast.js
+parser.js
