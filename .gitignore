@@ -11,4 +11,3 @@ debug*
 compiler.js
 ast.js
 parser.js
-package-lock.json

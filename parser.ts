@@ -1,6 +1,6 @@
 import {parser} from "lezer-python";
 import {TreeCursor} from "lezer-tree";
-import {Expr, Stmt} from "./ast";
+import {BinOp, Expr, Stmt} from "./ast";
 
 export function traverseExpr(c : TreeCursor, s : string) : Expr {
   switch(c.type.name) {
@@ -28,7 +28,34 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
         name: callName,
         arg: arg
       };
-
+    case "BinaryExpression":
+      c.firstChild(); // go to left arg 
+      const left = traverseExpr(c, s);
+      c.nextSibling(); // go to op
+      // const op = s.substring(c.from, c.to);
+      var op: BinOp;
+      switch (s.substring(c.from, c.to)) {
+        case "+":
+          op = BinOp.Plus;
+          break;
+        case "-":
+          op = BinOp.Minus;
+          break;
+        case "*":
+          op = BinOp.Mul;
+          break;
+        default:
+          throw new Error("PARSE ERROR: unknown binary operator");
+      }
+      c.nextSibling(); // go to right arg
+      const right = traverseExpr(c, s);
+      c.parent();
+      return {
+        tag: "binexpr",
+        op: op,
+        left: left,
+        right: right
+      };
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
