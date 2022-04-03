@@ -13,6 +13,10 @@ const importObject = {
       importObject.output += "\n";
       return arg;
     },
+    abs: Math.abs,
+    max: Math.max,
+    min: Math.min,
+    pow: Math.pow,
   },
 
   output: ""
@@ -64,4 +68,95 @@ describe('run(source, config) function', () => {
   });
 
   // TODO: add additional tests here to ensure the compiler runs as expected
+  it('adds two numbers', async () => {
+    const result = await run("-1 + 3", config);
+    expect(result).to.equal(2);
+  });
+  it('minus two numbers', async () => {
+    const result = await run("-1 - 3", config);
+    expect(result).to.equal(-4);
+  });
+  it('multiply two numbers', async () => {
+    const result = await run("-1 * 3", config);
+    expect(result).to.equal(-3);
+  });
+  it('max 1', async () => {
+    const result = await run("max(-1, -2)", config);
+    expect(result).to.equal(-1);
+  });
+  it('max 2', async () => {
+    const result = await run("x=-1\ny=2\nmax(x, y)", config);
+    expect(result).to.equal(2);
+  });
+  it('min 1', async () => {
+    const result = await run("min(8, 9)", config);
+    expect(result).to.equal(8);
+  });
+  it('min 2', async () => {
+    const result = await run("y=2\nmin(4, y)", config);
+    expect(result).to.equal(2);
+  });
+  it('pow 1', async () => {
+    const result = await run("pow(8, 3)", config);
+    expect(result).to.equal(512);
+  });
+  it('pow 2', async () => {
+    const result = await run("pow(2, 31)", config);
+    expect(result).to.equal(-2147483648);
+  });
+  it('pow 3', async () => {
+    const result = await run("pow(-2, 31)", config);
+    expect(result).to.equal(-2147483648);
+  });
+  it('abs 1', async () => {
+    const result = await run("abs(8)", config);
+    expect(result).to.equal(8);
+  });
+  it('abs 2', async () => {
+    const result = await run("abs(0)", config);
+    expect(result).to.equal(0);
+  });
+  it('abs 3', async () => {
+    const result = await run("abs(-2)", config);
+    expect(result).to.equal(2);
+  });
+  it('abs 4', async () => {
+    const result = await run("x=-1\nabs(x)", config);
+    expect(result).to.equal(1);
+  });
+  it('abs 5', async () => {
+    const result = await run("x=-1\nabs(-x)", config);
+    expect(result).to.equal(1);
+  });
+
+  it('calculation 1', async () => {
+    const result = await run("1 + 2 * 3 - 5 * 4", config);
+    expect(result).to.equal(-13);
+  });
+
+  it('calculation 2', async () => {
+    const result = await run("5 * 9 * 12 + 4 - 6 * 16", config);
+    expect(result).to.equal(448);
+  });
+
+  it('calculation 3', async () => {
+    const result = await run("-60 + 2 * 3 - 5 * 4", config);
+    expect(result).to.equal(-74);
+  });
+
+  it('calculation 4', async () => {
+    const result = await run("max(3*4, pow(5,2)) + min(2 * 3, 5 + 4)", config);
+    expect(result).to.equal(31);
+  });
+
+  it('calculation 5', async () => {
+    const result = await run("x=5\ny=x+4\nprint(y)", config);
+    expect(result).to.equal(9);
+  });
+
+  it('calculation 6', async () => {
+    var result = await run("x = -1\ny=-x\nz=2*x - y\nprint(z)\nx = -pow(z, abs(2 * y))\nprint(x)", config);
+    expect(config.importObject.output).to.equal("-3\n-9\n");
+  });
+
 });
