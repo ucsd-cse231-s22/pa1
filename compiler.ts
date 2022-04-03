@@ -63,7 +63,7 @@ function codeGenExpr(expr: Expr): Array<string> {
       const opStmt = codeGenBinOp(expr.op);
       return [...leftStmts, ...rightStmts, opStmt];
     case "unexpr":
-      const unaryStmts = codeGenExpr(expr.arg);
+      const unaryStmts = codeGenExpr(expr.expr);
       return codeGenUnOp(expr.op, unaryStmts);
   }
 }

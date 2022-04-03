@@ -1,6 +1,7 @@
 import {parser} from "lezer-python";
 import {TreeCursor} from "lezer-tree";
 import {BinOp, Expr, Stmt, UnOp} from "./ast";
+import { ParseError } from "./error";
 
 export function traverseArgs(c: TreeCursor, s: string): Array<Expr> {
   // c is the subtree of the arglist
@@ -47,7 +48,7 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
       c.parent(); // pop CallExpression
       if (args.length === 1) {
         if (!(["print", "abs"].includes(callName))) {
-          throw new Error("PARSE ERROR: unsupported builtin1");
+          throw new ParseError("unsupported builtin1 function");
         }
         return {
           tag: "builtin1",
@@ -57,7 +58,7 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
       }
       else if (args.length === 2) {
         if (!(["max", "min", "pow"].includes(callName))) {
-          throw new Error("PARSE ERROR: unsupported builtin2");
+          throw new ParseError("unsupported builtin2 function");
         }
         return {
           tag: "builtin2",
@@ -67,7 +68,7 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
         };
       }
       else {
-        throw new Error("PARSE ERROR: unsupported number of args");
+        throw new ParseError("unsupported number of args");
       }
     case "BinaryExpression":
       c.firstChild(); // go to left arg 
@@ -86,7 +87,7 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
           op = BinOp.Mul;
           break;
         default:
-          throw new Error("PARSE ERROR: unknown binary operator");
+          throw new ParseError("unknown binary operator");
       }
       c.nextSibling(); // go to right arg
       const right = traverseExpr(c, s);
@@ -108,14 +109,14 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
           uop = UnOp.Plus;
           break;
         default:
-          throw new Error("PARSE ERROR: unknown unary operator");
+          throw new ParseError("unknown unary operator");
       }
       c.nextSibling(); // go to right arg
       const uarg = traverseExpr(c, s);
       c.parent();
-      return { tag: "unexpr", op: uop, arg: uarg };
+      return { tag: "unexpr", op: uop, expr: uarg };
     default:
-      throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
+      throw new ParseError("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
 }
 
@@ -139,7 +140,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt {
       c.parent(); // pop going into stmt
       return { tag: "expr", expr: expr }
     default:
-      throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
+      throw new ParseError("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
   }
 }
 
@@ -154,7 +155,7 @@ export function traverse(c : TreeCursor, s : string) : Array<Stmt> {
       console.log("traversed " + stmts.length + " statements ", stmts, "stopped at " , c.node);
       return stmts;
     default:
-      throw new Error("Could not parse program at " + c.node.from + " " + c.node.to);
+      throw new ParseError("Could not parse program at " + c.node.from + " " + c.node.to);
   }
 }
 export function parse(source : string) : Array<Stmt> {
