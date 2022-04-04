@@ -12,7 +12,7 @@
     - In Python, max function can be used to compare strings (or other comparable objects)
     - In PA1, we can only get the maximum between two 32-bit integers
     - To solve this, we need to support strings
-- pow(2, 32)
+- pow(2, 31)
     - In Python, the result is 2147483648
     - In PA1, the result is -2147483648 because of overflow
     - To solve this, we need to represent an integer with more bits, like i64
