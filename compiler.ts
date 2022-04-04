@@ -4,14 +4,14 @@ import { parse } from "./parser";
 // https://learnxinyminutes.com/docs/wasm/
 
 type LocalEnv = Map<string, boolean>;
-
+var definedVars = new Set();
 type CompileResult = {
   wasmSource: string,
 };
 
 export function compile(source: string): CompileResult {
   const ast = parse(source);
-  const definedVars = new Set();
+  definedVars = new Set();
   ast.forEach(s => {
     switch (s.tag) {
       case "define":
@@ -56,6 +56,10 @@ function codeGenExpr(expr: Expr): Array<string> {
     case "num":
       return ["(i32.const " + expr.value + ")"];
     case "id":
+      console.log(definedVars);
+      if (!definedVars.has(expr.name)) {
+        throw new ReferenceError(`name ${expr.name} is not defined`);
+      }
       return [`(local.get $${expr.name})`];
     case "binexpr":
       const leftStmts = codeGenExpr(expr.left);

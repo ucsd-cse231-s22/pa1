@@ -159,9 +159,9 @@ describe('run(source, config) function', () => {
     expect(config.importObject.output).to.equal("-3\n-9\n");
   });
 
-  it('calculation 7', async () => {
-    var result = await run("y=-x\nprint(y)", config);
-    expect(config.importObject.output).to.equal("-3\n-9\n");
-  });
+  it('reference error', async () => {
+    var result = await run("y = -x\nprint(y)", config);
+  }); 
+
 
 });
