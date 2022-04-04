@@ -56,7 +56,6 @@ function codeGenExpr(expr: Expr): Array<string> {
     case "num":
       return ["(i32.const " + expr.value + ")"];
     case "id":
-      console.log(definedVars);
       if (!definedVars.has(expr.name)) {
         throw new ReferenceError(`name ${expr.name} is not defined`);
       }
