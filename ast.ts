@@ -1,23 +1,27 @@
+export type Type =
+  | "int"
+  | "bool"
+  | "none"
 
-export type Stmt =
-  | { tag: "define", name: string, value: Expr }
-  | { tag: "expr", expr: Expr }
+export type Parameter =
+  | { name: string, typ: Type }
 
-export type Expr =
-    { tag: "num", value: number }
-  | { tag: "id", name: string }
-  | { tag: "builtin1", name: string, arg: Expr }
-  | { tag: "binexpr", op: BinOp, left: Expr, right: Expr } 
-  | { tag: "unexpr", op: UnOp, expr: Expr }
-  | { tag: "builtin2", name: string, arg1: Expr, arg2: Expr }
+export type Stmt<A> =
+  | { a?: A, tag: "assign", name: string, value: Expr<A> }
+  | { a?: A, tag: "expr", expr: Expr<A> }
+  | { a?: A, tag: "define", name: string, params: Parameter[], ret: Type, body: Stmt<A>[] }
+  | { a?: A, tag: "return", value: Expr<A> }
 
-export enum UnOp {
-  Plus = "+",
-  Minus = "-",
-}
+export type Expr<A> = 
+  | { a?: A, tag: "number", value: number }
+  | { a?: A, tag: "true" }
+  | { a?: A, tag: "false" }
+  | { a?: A, tag: "binop", op: Op, lhs: Expr<A>, rhs: Expr<A> }
+  | { a?: A, tag: "id", name: string, global?: boolean }
+  | { a?: A, tag: "call", name: string, args: Expr<A>[] }
 
-export enum BinOp {
-  Plus = "+",
-  Minus = "-",
-  Mul = "*"
+const ops = {"+": true, "-": true, ">": true, "and": true, "or": true};
+export type Op = keyof (typeof ops);
+export function isOp(maybeOp : string) : maybeOp is Op {
+  return maybeOp in ops;
 }
