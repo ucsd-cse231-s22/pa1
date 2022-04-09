@@ -42,26 +42,109 @@ beforeEach(function () {
 describe('run(source, config) function', () => {
   const config = { importObject };
   
-  // We can test the behavior of the compiler in several ways:
-  // 1- we can test the return value of a program
-  // Note: since run is an async function, we use await to retrieve the 
-  // asynchronous return value. 
-  it('returns the right number', async () => {
-    const result = await runTest("987");
-    expect(result).to.equal(987);
-  });
+    // We can test the behavior of the compiler in several ways:
+    // 1- we can test the return value of a program
+    // Note: since run is an async function, we use await to retrieve the 
+    // asynchronous return value. 
+    it('returns the right number', async () => {
+        const result = await runTest("987");
+        expect(result).to.equal(987);
+    });
 
-  // Note: it is often helpful to write tests for a functionality before you
-  // implement it. You will make this test pass!
-  it('adds two numbers', async() => {
-    const result = await runTest("2 + 3");
-    expect(result).to.equal(5);
-  });
+    // Note: it is often helpful to write tests for a functionality before you
+    // implement it. You will make this test pass!
+    it('adds two numbers', async() => {
+        const result = await runTest("2 + 3");
+        expect(result).to.equal(5);
+    });
 
-  it('prints a boolean', async() => {
-    await runTest("print(True)");
-    expect(importObject.output).to.equal("True\n");
-  });
+    it('prints a boolean', async() => {
+        await runTest("print(True)");
+        expect(importObject.output).to.equal("True\n");
+    });
 
+    it('reference itself', async () => {
+        await runTest("x = 1\nx = x+1\nprint(x)");
+        expect(importObject.output).to.equal("2\n");
+    });
+
+  // it('prints a unary operation', async () => {
+  //   await runTest("print(1)");
+  //   expect(importObject.output).to.equal("1\n");
+  // });
 
 });
+
+describe('test unary operation', () => {
+    const config = { importObject };
+
+    it('prints a unary operation 1', async () => {
+        await runTest("print(-2)");
+        expect(importObject.output).to.equal("-2\n");
+    });
+
+    it('prints a unary operation 2', async () => {
+        await runTest("print(not True)");
+        expect(importObject.output).to.equal("False\n");
+    });
+
+    it('prints a unary operation 3', async () => {
+        await runTest("y = -5\nx=-y\nprint(x)\nprint(-(-x))");
+        expect(importObject.output).to.equal("5\n5\n");
+    });
+
+});
+
+describe('test control flow', () => {
+    const config = { importObject };
+
+    it('pass expression', async () => {
+        await runTest("x=1\npass\nprint(x)");
+        expect(importObject.output).to.equal("1\n");
+    });
+
+    it('if expression', async () => {
+        await runTest(`
+            x = 2
+            if x > 2:
+                print(x)
+            else:
+                print(-x)
+        `);
+        expect(importObject.output).to.equal("False\n");
+    });
+
+    it('elif expression', async () => {
+        await runTest(`
+            x = 25
+            if x < 2:
+                print(0)
+            elif x < 10:
+                print(1)
+            elif x < 20:
+                print(2)
+            else:
+                print(3)
+        `);
+        expect(importObject.output).to.equal("3\n");
+    });
+
+    it('while expression', async () => {
+        await runTest(`
+            limit = 100
+            x = 1
+            while x < limit:
+                x = x + 1
+            print(x)
+        `);
+        expect(importObject.output).to.equal("5\n5\n");
+    });
+    
+    it('prints a unary operation 3', async () => {
+        await runTest("y = -5\nx=-y\nprint(x)\nprint(-(-x))");
+        expect(importObject.output).to.equal("5\n5\n");
+    });
+
+});
+
+

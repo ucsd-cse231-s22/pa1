@@ -7,8 +7,13 @@ type Env = Map<string, boolean>;
 
 function variableNames(stmts: Stmt<Type>[]) : string[] {
   const vars : Array<string> = [];
+  const var_set = new Set();
+
   stmts.forEach((stmt) => {
-    if(stmt.tag === "assign") { vars.push(stmt.name); }
+    if (stmt.tag === "assign" && !var_set.has(stmt.name)) { 
+      vars.push(stmt.name); 
+      var_set.add(stmt.name);
+    }
   });
   return vars;
 }
@@ -59,6 +64,14 @@ export function codeGenExpr(expr : Expr<Type>, locals : Env) : Array<string> {
       const opstmts = opStmts(expr.op);
       return [...lhsExprs, ...rhsExprs, ...opstmts];
     }
+    case "unop":
+      const unaryStmts = codeGenExpr(expr.expr, locals);
+      switch(expr.op) {
+        case "-": return ["(i32.const 0)", ...unaryStmts, "(i32.sub)"];
+        case "not": return ["(i32.const 1)", ...unaryStmts, "(i32.sub)"];
+        // default:
+        //   throw new Error(`Unhandled or unknown op: ${expr.op}`);
+      }
     case "call":
       const valStmts = expr.args.map(e => codeGenExpr(e, locals)).flat();
       let toCall = expr.name;
@@ -107,6 +120,9 @@ export function codeGenStmt(stmt : Stmt<Type>, locals : Env) : Array<string> {
       const result = codeGenExpr(stmt.expr, locals);
       result.push("(local.set $scratch)");
       return result;
+    case "pass":
+      return [];
+    
   }
 }
 export function compile(source : string) : string {

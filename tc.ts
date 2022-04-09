@@ -8,6 +8,13 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
     case "number": return { ...e, a: "int" };
     case "true": return { ...e, a: "bool" };
     case "false": return { ...e, a: "bool" };
+    case "unop": {
+      switch (e.op) {
+        case "-": return { ...e, a: "int" };
+        case "not": return { ...e, a: "bool" };
+        // default: throw new Error(`Unhandled op ${e.op}`);
+      }
+    }
     case "binop": {
       switch(e.op) {
         case "+": return { ...e, a: "int" };
@@ -15,9 +22,10 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
         case ">": return { ...e, a: "bool" };
         case "and": return { ...e, a: "bool" };
         case "or": return { ...e, a: "bool" };
-        default: throw new Error(`Unhandled op ${e.op}`)
+        // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
+
     case "id": return { ...e, a: variables.get(e.name) };
     case "call":
       if(e.name === "print") {

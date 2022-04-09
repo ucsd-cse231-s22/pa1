@@ -11,3 +11,6 @@ debug*
 compiler.js
 ast.js
 parser.js
+test.ts
+test.js
+error.js
