@@ -6,12 +6,17 @@ export type Type =
 export type Parameter =
   | { name: string, typ: Type }
 
+export type CondBody<A> = 
+  { cond: Expr<A>, body: Stmt<A>[]}
+
 export type Stmt<A> =
   | { a?: A, tag: "assign", name: string, value: Expr<A> }
   | { a?: A, tag: "expr", expr: Expr<A> }
   | { a?: A, tag: "define", name: string, params: Parameter[], ret: Type, body: Stmt<A>[] }
   | { a?: A, tag: "return", value: Expr<A> }
   | { a?: A, tag: "pass"}
+  | { a?: A, tag: "if", ifstmt: CondBody<A>, elifstmt?: CondBody<A>[], elsestmt?: Stmt<A>[]}
+  | { a?: A, tag: "while", whilestmt: CondBody<A> }
 
 export type Expr<A> = 
   | { a?: A, tag: "number", value: number }
@@ -33,7 +38,11 @@ export type Expr<A> =
 //   Mul = "*"
 // }
 
-const ops = {"+": true, "-": true, ">": true, "and": true, "or": true};
+const ops = {
+  "+": true, "-": true, 
+  ">": true, "<": true, 
+  ">=": true, "<=": true, 
+  "and": true, "or": true};
 export type Op = keyof (typeof ops);
 export function isOp(maybeOp : string) : maybeOp is Op {
   return maybeOp in ops;

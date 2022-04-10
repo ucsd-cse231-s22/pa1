@@ -1,7 +1,8 @@
 import wabt from 'wabt';
-import {Stmt, Expr, Type, Op} from './ast';
+import {Stmt, Expr, Type, Op, CondBody} from './ast';
 import {parseProgram} from './parser';
 import { tcProgram } from './tc';
+import { stringifyTree } from './test';
 
 type Env = Map<string, boolean>;
 
@@ -41,6 +42,9 @@ export function opStmts(op : Op) {
     case "+": return [`i32.add`];
     case "-": return [`i32.sub`];
     case ">": return [`i32.gt_s`];
+    case "<": return [`i32.lt_s`];
+    case ">=": return [`i32.ge_s`];
+    case "<=": return [`i32.le_s`];
     case "and": return [`i32.and`];
     case "or": return [`i32.or`];
     default:
@@ -86,6 +90,20 @@ export function codeGenExpr(expr : Expr<Type>, locals : Env) : Array<string> {
       return valStmts;
   }
 }
+
+
+export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, tag = "if"): Array<string> {
+  const body = condbody.body.map(s => codeGenStmt(s, locals)).flat();
+  let stmt = codeGenExpr(condbody.cond, locals);
+  stmt = stmt.concat([`(if`, `(then`, ...body]);
+  if (tag === "elif") {
+    stmt = stmt.concat([`br 1`, `)`]);
+  }
+  stmt = stmt.concat([`)`]);
+  return stmt;
+}
+
+
 export function codeGenStmt(stmt : Stmt<Type>, locals : Env) : Array<string> {
   switch(stmt.tag) {
     case "define":
@@ -122,9 +140,32 @@ export function codeGenStmt(stmt : Stmt<Type>, locals : Env) : Array<string> {
       return result;
     case "pass":
       return [];
-    
+    case "if":
+      const ifcondbody = codeGenCondBody(stmt.ifstmt, locals);
+      const elifcondbody = stmt.elifstmt.map(p => codeGenCondBody(p, locals, "elif")).flat();
+      const elsestmt = stmt.elsestmt.map(p => codeGenStmt(p, locals)).flat();
+      // console.log([...ifcondbody, `(else`, ...elifcondbody, ...elsestmt, `br 0`, `)`]);
+      return [...ifcondbody, `(else`, ...elifcondbody, ...elsestmt, `br 0`, `)`, `)`];
+    case "while":
+      let cond = codeGenExpr(stmt.whilestmt.cond, locals).join("\n");
+      const body = stmt.whilestmt.body.map(s => codeGenStmt(s, locals)).flat().join("\n");
+      return [`(block
+        (loop
+          ${cond}
+          (if
+            (then
+              ${body}
+              br 1
+            )
+            (else
+              br 2
+            )
+          )
+        )
+      )`];
   }
 }
+
 export function compile(source : string) : string {
   let ast = parseProgram(source);
   ast = tcProgram(ast);

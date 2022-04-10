@@ -1,4 +1,4 @@
-import { Expr, Stmt, Type } from "./ast";
+import { CondBody, Expr, Stmt, Type } from "./ast";
 
 type FunctionsEnv = Map<string, [Type[], Type]>;
 type BodyEnv = Map<string, Type>;
@@ -19,7 +19,10 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
       switch(e.op) {
         case "+": return { ...e, a: "int" };
         case "-": return { ...e, a: "int" };
-        case ">": return { ...e, a: "bool" };
+        case ">": return { ...e, a: "int" };
+        case "<": return { ...e, a: "int" };
+        case ">=": return { ...e, a: "int" };
+        case "<=": return { ...e, a: "int" };
         case "and": return { ...e, a: "bool" };
         case "or": return { ...e, a: "bool" };
         // default: throw new Error(`Unhandled op ${e.op}`);
@@ -82,7 +85,27 @@ export function tcStmt(s : Stmt<any>, functions : FunctionsEnv, variables : Body
       }
       return { ...s, value: valTyp };
     }
+    case "pass": {
+      return s;
+    }
+    case "if": {
+      const ifstmt = tcCondBody(s.ifstmt, functions, variables, currentReturn);
+      const elifstmt = s.elifstmt.map(p => tcCondBody(p, functions, variables, currentReturn));
+      const elsestmt = s.elsestmt.map(p => tcStmt(p, functions, variables, currentReturn));
+      return { ...s, ifstmt, elifstmt, elsestmt};
+    }
+    case "while": {
+      const whilestmt = tcCondBody(s.whilestmt, functions, variables, currentReturn);
+      return { ...s, whilestmt };
+    }
   }
+  return s;
+}
+
+export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv, variables: BodyEnv, currentReturn: Type): CondBody<Type> {
+  const newCond = tcExpr(condbody.cond, functions, variables);
+  const newBody = condbody.body.map(bs => tcStmt(bs, functions, variables, currentReturn));
+  return { cond: newCond, body: newBody};
 }
 
 export function tcProgram(p : Stmt<any>[]) : Stmt<Type>[] {

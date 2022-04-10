@@ -105,28 +105,44 @@ describe('test control flow', () => {
 
     it('if expression', async () => {
         await runTest(`
-            x = 2
+            x = 3
             if x > 2:
                 print(x)
             else:
                 print(-x)
         `);
-        expect(importObject.output).to.equal("False\n");
+        expect(importObject.output).to.equal("3\n");
     });
 
-    it('elif expression', async () => {
+    it('elif expression 1', async () => {
         await runTest(`
             x = 25
             if x < 2:
                 print(0)
             elif x < 10:
                 print(1)
-            elif x < 20:
+            elif x > 30:
                 print(2)
             else:
                 print(3)
         `);
         expect(importObject.output).to.equal("3\n");
+    });
+
+    it('elif expression 2', async () => {
+        await runTest(`
+            x = 5
+            if x <= 2:
+                x=0
+            elif x <= 10:
+                x=1
+            elif x >= 30:
+                x=2
+            else:
+                x=3
+            print(x)
+        `);
+        expect(importObject.output).to.equal("1\n");
     });
 
     it('while expression', async () => {
@@ -137,13 +153,13 @@ describe('test control flow', () => {
                 x = x + 1
             print(x)
         `);
-        expect(importObject.output).to.equal("5\n5\n");
+        expect(importObject.output).to.equal("100\n");
     });
     
-    it('prints a unary operation 3', async () => {
-        await runTest("y = -5\nx=-y\nprint(x)\nprint(-(-x))");
-        expect(importObject.output).to.equal("5\n5\n");
-    });
+    // it('prints a unary operation 3', async () => {
+    //     await runTest("y = -5\nx=-y\nprint(x)\nprint(-(-x))");
+    //     expect(importObject.output).to.equal("5\n5\n");
+    // });
 
 });
 

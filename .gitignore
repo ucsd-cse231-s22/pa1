@@ -14,3 +14,5 @@ parser.js
 test.ts
 test.js
 error.js
+test*
+node-cli*

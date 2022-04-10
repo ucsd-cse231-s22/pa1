@@ -1,6 +1,6 @@
 import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
-import { Parameter, Stmt, Expr, Type, isOp, isUnOp } from './ast';
+import { Parameter, Stmt, Expr, Type, isOp, isUnOp, CondBody } from './ast';
 import { ParseError } from './error';
 
 export function parseProgram(source : string) : Array<Stmt<any>> {
@@ -13,13 +13,25 @@ export function traverseStmts(t: TreeCursor, s: string) {
   // that are various statements
   switch (t.node.type.name) {
     case "Script":
-      const stmts = [];
+      var stmts = [];
       t.firstChild();
       do {
+        console.log(t.type.name);
         stmts.push(traverseStmt(t, s));
       } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
                                  //  the end of the list of children
       // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
+      return stmts;
+    case "Body":
+      // focus on Body
+      var stmts = [];
+      t.firstChild(); // focus on semicolon
+      t.nextSibling()
+      do {
+        stmts.push(traverseStmt(t, s));
+      } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
+      //  the end of the list of children
+      t.parent();
       return stmts;
     default:
       throw new ParseError("Could not parse program at " + t.node.from + " " + t.node.to);
@@ -80,6 +92,31 @@ export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
       }
     case "PassStatement":
       return { tag: "pass"}
+    case "IfStatement":
+      t.firstChild();  // Focus on if
+      let ifstmt = traverseCondBody(t, s);
+
+      let elifstmt: CondBody<any>[] = [];
+      let elsestmt: Stmt<any>[] = [];
+      t.nextSibling(); // Focus on possible elifs
+      while (s.substring(t.from, t.to) === "elif") {
+        elifstmt.push(traverseCondBody(t, s));
+        t.nextSibling();
+      }
+      if (s.substring(t.from, t.to) === "else") {
+        t.nextSibling(); // Focus on body
+        elsestmt = traverseStmts(t, s);
+      }
+      t.parent();
+      return {
+        tag: "if", 
+        ifstmt, elifstmt, elsestmt
+      };
+    case "WhileStatement":
+      t.firstChild();  // Focus on while
+      let whilestmt = traverseCondBody(t, s);
+      t.parent();
+      return { tag: "while", whilestmt};
   }
 }
 
@@ -171,6 +208,16 @@ export function traverseExpr(t: TreeCursor, s: string) : Expr<any> {
       throw new ParseError("Could not parse expr at " + t.from + " " + t.to + ": " + s.substring(t.from, t.to));
   }
 }
+
+export function traverseCondBody(t: TreeCursor, s: string) : CondBody<any> {
+  //focus on if or elif or while etc
+  t.nextSibling(); //focus on condition
+  let cond = traverseExpr(t, s);
+  t.nextSibling(); // focuse on body
+  let body = traverseStmts(t, s);
+  return {cond, body};
+}
+
 
 export function traverseArguments(t : TreeCursor, s : string) : Expr<any>[] {
   // c is the subtree of the arglist
