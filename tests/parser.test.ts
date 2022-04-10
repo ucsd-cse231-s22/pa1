@@ -2,7 +2,7 @@ import * as mocha from 'mocha';
 import {expect} from 'chai';
 import { parser } from 'lezer-python';
 import { traverseExpr, traverseStmt, traverseStmts, parseProgram } from '../parser';
-import { Op, UnOp } from '../ast';
+import { BinOp, UnOp } from '../ast';
 
 // We write tests for each function in parser.ts here. Each function gets its 
 // own describe statement. Each it statement represents a single test. You

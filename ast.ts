@@ -22,7 +22,7 @@ export type Expr<A> =
   | { a?: A, tag: "number", value: number }
   | { a?: A, tag: "true" }
   | { a?: A, tag: "false" }
-  | { a?: A, tag: "binop", op: Op, lhs: Expr<A>, rhs: Expr<A> }
+  | { a?: A, tag: "binop", op: BinOp, lhs: Expr<A>, rhs: Expr<A> }
   | { a?: A, tag: "unop", op: UnOp, expr: Expr<A> }
   | { a?: A, tag: "id", name: string, global?: boolean }
   | { a?: A, tag: "call", name: string, args: Expr<A>[] }
@@ -38,14 +38,16 @@ export type Expr<A> =
 //   Mul = "*"
 // }
 
-const ops = {
-  "+": true, "-": true, 
-  ">": true, "<": true, 
-  ">=": true, "<=": true, 
-  "and": true, "or": true};
-export type Op = keyof (typeof ops);
-export function isOp(maybeOp : string) : maybeOp is Op {
-  return maybeOp in ops;
+const binops = {
+  "+": true, "-": true, "*": true, "//": true, "%": true,
+  ">": true, "<": true, ">=": true, "<=": true, 
+  "!=": true, "==": true,
+  // "and": true, "or": true,
+  "is": true
+};
+export type BinOp = keyof (typeof binops);
+export function isOp(maybeOp : string) : maybeOp is BinOp {
+  return maybeOp in binops;
 }
 
 const unops = { "-": true, "not": true};

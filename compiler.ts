@@ -1,5 +1,5 @@
 import wabt from 'wabt';
-import {Stmt, Expr, Type, Op, CondBody} from './ast';
+import {Stmt, Expr, Type, BinOp, CondBody} from './ast';
 import {parseProgram} from './parser';
 import { tcProgram } from './tc';
 import { stringifyTree } from './test';
@@ -37,16 +37,22 @@ export async function run(watSource : string, config: any) : Promise<number> {
   return (wasmModule.instance.exports as any)._start();
 }
 
-export function opStmts(op : Op) {
+export function opStmts(op : BinOp) {
   switch(op) {
     case "+": return [`i32.add`];
     case "-": return [`i32.sub`];
+    case "*": return [`i32.mul`];
+    case "//": return [`i32.div_s`];
+    case "%": return [`i32.rem_s`];
     case ">": return [`i32.gt_s`];
     case "<": return [`i32.lt_s`];
     case ">=": return [`i32.ge_s`];
     case "<=": return [`i32.le_s`];
-    case "and": return [`i32.and`];
-    case "or": return [`i32.or`];
+    case "==": return [`i32.eq`];
+    case "!=": return [`i32.ne`];
+    // case "and": return [`i32.and`];
+    // case "or": return [`i32.or`];
+    // TODO: case "is": return [`i32.and`];
     default:
       throw new Error(`Unhandled or unknown op: ${op}`);
   }

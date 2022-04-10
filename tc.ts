@@ -1,4 +1,5 @@
 import { CondBody, Expr, Stmt, Type } from "./ast";
+import { ParseError } from "./cli/error";
 
 type FunctionsEnv = Map<string, [Type[], Type]>;
 type BodyEnv = Map<string, Type>;
@@ -8,27 +9,68 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
     case "number": return { ...e, a: "int" };
     case "true": return { ...e, a: "bool" };
     case "false": return { ...e, a: "bool" };
-    case "unop": {
-      switch (e.op) {
-        case "-": return { ...e, a: "int" };
-        case "not": return { ...e, a: "bool" };
-        // default: throw new Error(`Unhandled op ${e.op}`);
-      }
-    }
     case "binop": {
+      const nLHS = tcExpr(e.lhs, functions, variables);
+      const nRHS = tcExpr(e.rhs, functions, variables);
       switch(e.op) {
-        case "+": return { ...e, a: "int" };
-        case "-": return { ...e, a: "int" };
-        case ">": return { ...e, a: "int" };
-        case "<": return { ...e, a: "int" };
-        case ">=": return { ...e, a: "int" };
-        case "<=": return { ...e, a: "int" };
-        case "and": return { ...e, a: "bool" };
-        case "or": return { ...e, a: "bool" };
+        case "+":
+        case "-":
+        case "*":
+        case "//":
+        case "%":
+          if (nLHS.a === "int" && nRHS.a === "int")
+          {
+            return { ...e, a: "int", lhs: nLHS, rhs: nRHS};
+          }
+          else {
+            throw new TypeError(`Cannot apply operator '${e.op}' on
+            types '${nLHS.a}' and '${nRHS.a}'`)
+          } 
+        case ">":
+        case "<":
+        case ">=":
+        case "<=":
+          if (nLHS.a === "int" && nRHS.a === "int") {
+            return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
+          }
+          else {
+            throw new TypeError(`Cannot apply operator '${e.op}' on
+            types '${nLHS.a}' and '${nRHS.a}'`)
+          }
+        case "==":
+        case "!=": 
+          if (nLHS.a === nRHS.a) {
+            return { ...e, a: "bool", lhs: nLHS, rhs: nRHS};
+          }
+          else {
+            throw new TypeError(`Cannot apply operator '${e.op}' on
+              types '${nLHS.a}' and '${nRHS.a}'`)
+          }
+        // case "and": return { ...e, a: "bool" };
+        // case "or": return { ...e, a: "bool" };
+        case "is":
+          return { ...e, a: "bool", lhs: nLHS, rhs: nRHS};
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
-
+    case "unop": {
+      const nExpr = tcExpr(e, functions, variables);
+      switch (e.op) {
+        case "-": 
+          if (nExpr.a === "int")
+            return { ...e, a: "int" };
+          else 
+            throw new TypeError(`Cannot apply operator '${e.op}' on
+              types '${nExpr.a}'`)
+        case "not": 
+          if (nExpr.a === "bool")
+            return { ...e, a: "bool" };
+          else
+            throw new TypeError(`Cannot apply operator '${e.op}' on
+              types '${nExpr.a}'`)
+        // default: throw new Error(`Unhandled op ${e.op}`);
+      }
+    }
     case "id": return { ...e, a: variables.get(e.name) };
     case "call":
       if(e.name === "print") {
@@ -55,6 +97,7 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
       return { ...e, a: ret, args: newArgs };
   }
 }
+
 
 export function tcStmt(s : Stmt<any>, functions : FunctionsEnv, variables : BodyEnv, currentReturn : Type) : Stmt<Type> {
   switch(s.tag) {
