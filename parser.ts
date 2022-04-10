@@ -16,7 +16,6 @@ export function traverseStmts(t: TreeCursor, s: string) {
       var stmts = [];
       t.firstChild();
       do {
-        console.log(t.type.name);
         stmts.push(traverseStmt(t, s));
       } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
                                  //  the end of the list of children
