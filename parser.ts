@@ -49,14 +49,32 @@ export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
       t.parent();
       return { tag: "return", value };
     case "AssignStatement":
+      // assign: x = 1
+      // declare: x:int = 1
       t.firstChild(); // focused on name (the first child)
       var name = s.substring(t.from, t.to);
-      t.nextSibling(); // focused on = sign. May need this for complex tasks, like +=!
+      t.nextSibling(); // could be = sign or Typedef
+      var ret: Type = "none";
+      var maybeTD = t;
+      let assign = true;
+      if (maybeTD.type.name === "TypeDef") {
+        t.firstChild(); // focus on :
+        t.nextSibling(); // focus on type
+        ret = traverseType(t, s);
+        t.parent();
+        t.nextSibling(); // focus on = sign
+        assign = false;
+      }
+      // focused on = sign. May need this for complex tasks, like +=!
       t.nextSibling(); // focused on the value expression
 
       var value = traverseExpr(t, s);
       t.parent();
-      return { tag: "assign", name, value };
+      if (assign)
+        return { tag: "assign", name, value };
+      else {
+        return { tag: "declare", name, ret, value };
+      }
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
                       // ExpressionStatement is just a wrapper with no information
@@ -70,8 +88,8 @@ export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
       t.nextSibling(); // Focus on ParamList
       var params = traverseParameters(t, s)
       t.nextSibling(); // Focus on Body or TypeDef
-      let ret : Type = "none";
-      let maybeTD = t;
+      var ret : Type = "none";
+      var maybeTD = t;
       if(maybeTD.type.name === "TypeDef") {
         t.firstChild();
         ret = traverseType(t, s);
