@@ -54,17 +54,17 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
       }
     }
     case "unop": {
-      const nExpr = tcExpr(e, functions, variables);
+      const nExpr = tcExpr(e.expr, functions, variables);
       switch (e.op) {
         case "-": 
           if (nExpr.a === "int")
-            return { ...e, a: "int" };
+            return { ...e, a: "int", expr: nExpr};
           else 
             throw new TypeError(`Cannot apply operator '${e.op}' on
               types '${nExpr.a}'`)
         case "not": 
           if (nExpr.a === "bool")
-            return { ...e, a: "bool" };
+            return { ...e, a: "bool", expr: nExpr};
           else
             throw new TypeError(`Cannot apply operator '${e.op}' on
               types '${nExpr.a}'`)
@@ -80,17 +80,20 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
         return res;
       }
       if(!functions.has(e.name)) {
-        throw new Error(`function ${e.name} not found`);
+        throw new Error(`Not a function or class: ${e.name}`);
+        // throw new Error(`function ${e.name} not found`);
       }
 
       const [args, ret] = functions.get(e.name);
       if(args.length !== e.args.length) {
-        throw new Error(`Expected ${args.length} arguments but got ${e.args.length}`);
+        throw new Error(`Expected ${args.length} arguments; got ${e.args.length}`);
       }
 
       const newArgs = args.map((a, i) => {
         const argtyp = tcExpr(e.args[i], functions, variables);
-        if(a !== argtyp.a) { throw new Error(`Got ${argtyp} as argument ${i + 1}, expected ${a}`); }
+        if(a !== argtyp.a) { 
+          throw new Error(`Expected ${a}; got type ${argtyp} in parameter ${i + 1}`); 
+        }
         return argtyp
       });
 
@@ -161,14 +164,16 @@ export function tcProgram(p : Stmt<any>[]) : Stmt<Type>[] {
 
   const globals = new Map<string, Type>();
   return p.map(s => {
-    if(s.tag === "assign") {
-      const rhs = tcExpr(s.value, functions, globals);
-      globals.set(s.name, rhs.a);
-      return { ...s, value: rhs };
-    }
-    else {
-      const res = tcStmt(s, functions, globals, "none");
-      return res;
-    }
+    const res = tcStmt(s, functions, globals, "none");
+    return res;
+    // if(s.tag === "assign") {
+    //   const rhs = tcExpr(s.value, functions, globals);
+    //   globals.set(s.name, rhs.a);
+    //   return { ...s, value: rhs };
+    // }
+    // else {
+    //   const res = tcStmt(s, functions, globals, "none");
+    //   return res;
+    // }
   });
 }

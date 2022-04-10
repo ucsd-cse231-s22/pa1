@@ -100,8 +100,14 @@ export function codeGenExpr(expr : Expr<Type>, locals : Env) : Array<string> {
 
 export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, tag = "if"): Array<string> {
   const body = condbody.body.map(s => codeGenStmt(s, locals)).flat();
-  let stmt = codeGenExpr(condbody.cond, locals);
-  stmt = stmt.concat([`(if`, `(then`, ...body]);
+  const cond = codeGenExpr(condbody.cond, locals);
+  // let stmt = cond.concat([`(if`, `(then`, ...body]);
+  let stmt = [`
+    ${cond.join("\n")}
+    (if
+    (then
+      ${body.join("\n")}
+  `];
   if (tag === "elif") {
     stmt = stmt.concat([`br 1`, `)`]);
   }
