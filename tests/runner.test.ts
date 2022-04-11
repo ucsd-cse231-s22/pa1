@@ -130,6 +130,25 @@ describe('test operations', () => {
         expect(importObject.output).to.equal("-2\n4\nFalse\nTrue\n5\n5\n");
     });
 
+    it('operation error', async () => {
+        try {
+            await runTest(`
+                print(1+True)
+            `);
+        } catch (error) {
+            expect(error.name).to.equal("TypeError");
+        }
+        try {
+            await runTest(`
+                y:bool = True
+                x:int = 1
+                x = y
+            `);
+        } catch (error) {
+            expect(error.message).to.equal(`Expect type 'int'; got type 'bool'`);
+        }
+    });
+
     // TODO: test "is"
     // it('is operation', async () => {
     //     await runTest("1 is 2");

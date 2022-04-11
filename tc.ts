@@ -53,8 +53,7 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
             return { ...e, a: "bool", lhs: nLHS, rhs: nRHS};
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' on
-              types '${nLHS.a}' and '${nRHS.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`)
           }
         // case "and": return { ...e, a: "bool" };
         // case "or": return { ...e, a: "bool" };
@@ -127,14 +126,8 @@ export function tcStmt(s : Stmt<any>, functions : FunctionsEnv, variables : Body
         throw new Error(`Not a variable: ${s.name}`);
       }
       else if (variables.get(s.name) !== rhs.a) {
-        throw new Error(`Cannot assign ${rhs} to ${variables.get(s.name)}`);
+        throw new TypeError(`Expect type '${variables.get(s.name)}'; got type '${rhs.a}'`);
       }
-      // if(variables.has(s.name) && variables.get(s.name) !== rhs.a) {
-      //   throw new Error(`Cannot assign ${rhs} to ${variables.get(s.name)}`);
-      // }
-      // else {
-      //   variables.set(s.name, rhs.a);
-      // }
       return { ...s, value: rhs };
     }
     case "expr": {
@@ -187,7 +180,7 @@ export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv
   else
     local.set(s.var.name, s.var.typ);
   if (local.get(s.var.name) !== rhs.a) {
-    throw new Error(`Cannot assign ${rhs.a} to ${local.get(s.var.name)}`);
+    throw new TypeError(`Expect type '${local.get(s.var.name)}'; got type '${rhs.a}'`);
   }
   return { ...s, value: rhs };
 }
