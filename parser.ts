@@ -1,11 +1,37 @@
 import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
-import { Parameter, Stmt, Expr, Type, isOp, isUnOp, CondBody } from './ast';
+import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody } from './ast';
 import { ParseError } from './error';
 
 export function parseProgram(source : string) : Array<Stmt<any>> {
   const t = parser.parse(source).cursor();
-  return traverseStmts(t, source);
+  const stmts = traverseStmts(t, source);
+  const vardefs = stmts.filter(stmt => {
+    return stmt.tag == "assign" && stmt.typ
+  }).map(stmt => {
+    if (stmt.tag !== "assign")
+      return false;
+    else
+      return {
+        tag: "declare",
+        var: { name: stmt.name, typ: stmt?.typ },
+        value: stmt.value
+      };
+  }) 
+  const fundefs = stmts.filter(stmt => {
+    return stmt.tag === "define"
+  }).map(stmt => {
+    if (stmt.tag !== "assign")
+      return false;
+    else
+      return {
+        tag: "declare",
+        var: { name: stmt.name, typ: stmt?.typ },
+        value: stmt.value
+      };
+  }) 
+
+  return stmts;
 }
 
 export function traverseStmts(t: TreeCursor, s: string) {
@@ -40,7 +66,7 @@ export function traverseStmts(t: TreeCursor, s: string) {
 /*
   Invariant – t must focus on the same node at the end of the traversal
 */
-export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
+export function traverseStmt(t: TreeCursor, s: string,): Stmt<any> {
   switch(t.type.name) {
     case "ReturnStatement":
       t.firstChild();  // Focus return keyword

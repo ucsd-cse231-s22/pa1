@@ -1,3 +1,15 @@
+export type Program<A> = 
+  { a?: A, vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
+
+export type VarDef<A> =
+  { a?: A, tag: "declare", var: TypedVar, value: Expr<A> };
+
+export type FunDef<A> = 
+  { a?: A, tag: "define", name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A>[] }
+
+export type FuncBody<A> = 
+  { vardefs: VarDef<A>[],  body: Stmt<A> }
+
 export type Type =
   | "int"
   | "bool"
@@ -8,7 +20,7 @@ export type Literal =
   | { tag: "bool", value: boolean }
   | { tag: "none" }
 
-export type Parameter =
+export type TypedVar =
   | { name: string, typ: Type }
 
 export type CondBody<A> = 
@@ -17,7 +29,6 @@ export type CondBody<A> =
 export type Stmt<A> =
   | { a?: A, tag: "assign", name: string, value: Expr<A>, typ?: Type }
   | { a?: A, tag: "expr", expr: Expr<A> }
-  | { a?: A, tag: "define", name: string, params: Parameter[], ret: Type, body: Stmt<A>[] }
   | { a?: A, tag: "return", value: Expr<A> }
   | { a?: A, tag: "pass"}
   | { a?: A, tag: "if", ifstmt: CondBody<A>, elifstmt?: CondBody<A>[], elsestmt?: Stmt<A>[]}
