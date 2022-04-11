@@ -106,12 +106,21 @@ export function tcStmt(s : Stmt<any>, functions : FunctionsEnv, variables : Body
   switch(s.tag) {
     case "assign": {
       const rhs = tcExpr(s.value, functions, variables);
-      if(variables.has(s.name) && variables.get(s.name) !== rhs.a) {
-        throw new Error(`Cannot assign ${rhs} to ${variables.get(s.name)}`);
-      }
-      else {
+      if (s?.ret) {
         variables.set(s.name, rhs.a);
       }
+      if (!variables.has(s.name)) {
+        throw new Error(`Not a variable: ${s.name}`);
+      }
+      else if (variables.get(s.name) !== rhs.a) {
+        throw new Error(`Cannot assign ${rhs} to ${variables.get(s.name)}`);
+      }
+      // if(variables.has(s.name) && variables.get(s.name) !== rhs.a) {
+      //   throw new Error(`Cannot assign ${rhs} to ${variables.get(s.name)}`);
+      // }
+      // else {
+      //   variables.set(s.name, rhs.a);
+      // }
       return { ...s, value: rhs };
     }
     case "define": {

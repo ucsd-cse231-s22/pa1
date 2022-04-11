@@ -11,7 +11,7 @@ function variableNames(stmts: Stmt<Type>[]) : string[] {
   const var_set = new Set();
 
   stmts.forEach((stmt) => {
-    if (stmt.tag === "assign" && !var_set.has(stmt.name)) { 
+    if (stmt.tag === "assign" && !var_set.has(stmt.name) && stmt?.ret) { 
       vars.push(stmt.name); 
       var_set.add(stmt.name);
     }
@@ -142,7 +142,12 @@ export function codeGenStmt(stmt : Stmt<Type>, locals : Env) : Array<string> {
       valStmts.push("return");
       return valStmts;
     case "assign":
-      var valStmts = codeGenExpr(stmt.value, locals);
+      var valStmts: Array<string> = [];
+      // if (stmt?.ret) { // declare
+      //   locals.set(stmt.name, true);
+      //   valStmts.push(`(local $${stmt.name} i32)`);
+      // }
+      valStmts = valStmts.concat(codeGenExpr(stmt.value, locals));
       if(locals.has(stmt.name)) { valStmts.push(`(local.set $${stmt.name})`); }
       else { valStmts.push(`(global.set $${stmt.name})`); }
       return valStmts;

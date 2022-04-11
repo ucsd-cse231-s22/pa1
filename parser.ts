@@ -54,26 +54,25 @@ export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
       t.firstChild(); // focused on name (the first child)
       var name = s.substring(t.from, t.to);
       t.nextSibling(); // could be = sign or Typedef
-      var ret: Type = "none";
+      var ret: Type = undefined;
       var maybeTD = t;
-      let assign = true;
       if (maybeTD.type.name === "TypeDef") {
         t.firstChild(); // focus on :
         t.nextSibling(); // focus on type
         ret = traverseType(t, s);
         t.parent();
         t.nextSibling(); // focus on = sign
-        assign = false;
       }
       // focused on = sign. May need this for complex tasks, like +=!
       t.nextSibling(); // focused on the value expression
 
       var value = traverseExpr(t, s);
       t.parent();
-      if (assign)
+      // return { tag: "assign", name, value, ret };
+      if (ret === undefined)
         return { tag: "assign", name, value };
       else {
-        return { tag: "declare", name, ret, value };
+        return { tag: "assign", name, ret, value };
       }
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
