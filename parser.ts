@@ -189,6 +189,8 @@ export function traverseExpr(t: TreeCursor, s: string) : Expr<any> {
       }
     case "Number":
       return { tag: "literal", value: { tag: "number", value: Number(s.substring(t.from, t.to)) } };
+    case "None":
+      return { tag: "literal", value: { tag: "none" } };
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
     case "CallExpression":
