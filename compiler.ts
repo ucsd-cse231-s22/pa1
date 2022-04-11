@@ -1,31 +1,25 @@
 import wabt from 'wabt';
-import {Stmt, Expr, Type, BinOp, CondBody} from './ast';
+import { BinOp, CondBody, Expr, FuncBody, FunDef, Literal, Program, Stmt, Type, VarDef } from "./ast";
 import {parseProgram} from './parser';
 import { tcProgram } from './tc';
-import { stringifyTree } from './test';
 
 type Env = Map<string, boolean>;
 
-function variableNames(stmts: Stmt<Type>[]) : string[] {
+function variableNames(vardefs: VarDef<Type>[]) : string[] {
   const vars : Array<string> = [];
   const var_set = new Set();
 
-  stmts.forEach((stmt) => {
-    if (stmt.tag === "assign" && !var_set.has(stmt.name) && stmt?.typ) { 
-      vars.push(stmt.name); 
-      var_set.add(stmt.name);
+  vardefs.forEach((vardef) => {
+    if (!var_set.has(vardef.var.name)) { 
+      vars.push(vardef.var.name); 
+      var_set.add(vardef.var.name);
     }
   });
   return vars;
 }
-function funs(stmts: Stmt<Type>[]) : Stmt<Type>[] {
-  return stmts.filter(stmt => stmt.tag === "define");
-}
-function nonFuns(stmts: Stmt<Type>[]) : Stmt<Type>[] {
-  return stmts.filter(stmt => stmt.tag !== "define");
-}
-function varsFunsStmts(stmts: Stmt<Type>[]) : [string[], Stmt<Type>[], Stmt<Type>[]] {
-  return [variableNames(stmts), funs(stmts), nonFuns(stmts)];
+
+function varsFunsStmts(p: Program<Type>): [string[], FunDef<Type>[], Stmt<Type>[]] {
+  return [variableNames(p.vardefs), p.fundefs, p.stmts];
 }
 
 export async function run(watSource : string, config: any) : Promise<number> {
@@ -130,25 +124,6 @@ export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, tag = "if
 
 export function codeGenStmt(stmt : Stmt<Type>, locals : Env) : Array<string> {
   switch(stmt.tag) {
-    case "define":
-      const withParamsAndVariables = new Map<string, boolean>(locals.entries());
-
-      // Construct the environment for the function body
-      const variables = variableNames(stmt.body);
-      variables.forEach(v => withParamsAndVariables.set(v, true));
-      stmt.params.forEach(p => withParamsAndVariables.set(p.name, true));
-
-      // Construct the code for params and variable declarations in the body
-      const params = stmt.params.map(p => `(param $${p.name} i32)`).join(" ");
-      const varDecls = variables.map(v => `(local $${v} i32)`).join("\n");
-
-      const stmts = stmt.body.map(s => codeGenStmt(s, withParamsAndVariables)).flat();
-      const stmtsBody = stmts.join("\n");
-      return [`(func $${stmt.name} ${params} (result i32)
-        (local $scratch i32)
-        ${varDecls}
-        ${stmtsBody}
-        (i32.const 0))`];
     case "return":
       var valStmts = codeGenExpr(stmt.value, locals);
       valStmts.push("return");
@@ -195,12 +170,33 @@ export function codeGenStmt(stmt : Stmt<Type>, locals : Env) : Array<string> {
   }
 }
 
+export function codeGenFun(f: FunDef<Type>, locals: Env): Array<string> {
+  const withParamsAndVariables = new Map<string, boolean>(locals.entries());
+
+  // Construct the environment for the function body
+  const variables = variableNames(f.body.vardefs);
+  variables.forEach(v => withParamsAndVariables.set(v, true));
+  f.params.forEach(p => withParamsAndVariables.set(p.name, true));
+
+  // Construct the code for params and variable declarations in the body
+  const params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
+  const varDecls = variables.map(v => `(local $${v} i32)`).join("\n");
+
+  const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables)).flat();
+  const stmtsBody = stmts.join("\n");
+  return [`(func $${f.name} ${params} (result i32)
+        (local $scratch i32)
+        ${varDecls}
+        ${stmtsBody}
+        (i32.const 0))`];
+}
+
 export function compile(source : string) : string {
   let ast = parseProgram(source);
   ast = tcProgram(ast);
   const emptyEnv = new Map<string, boolean>();
   const [vars, funs, stmts] = varsFunsStmts(ast);
-  const funsCode : string[] = funs.map(f => codeGenStmt(f, emptyEnv)).map(f => f.join("\n"));
+  const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv)).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
   const varDecls = vars.map(v => `(global $${v} (mut i32) (i32.const 0))`).join("\n");
 
@@ -208,7 +204,7 @@ export function compile(source : string) : string {
 
   const main = [`(local $scratch i32)`, ...allStmts].join("\n");
 
-  const lastStmt = ast[ast.length - 1];
+  const lastStmt = ast.stmts[ast.stmts.length - 1];
   const isExpr = lastStmt.tag === "expr";
   var retType = "";
   var retVal = "";

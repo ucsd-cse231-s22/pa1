@@ -1,4 +1,4 @@
-import { CondBody, Expr, Literal, Stmt, Type } from "./ast";
+import { CondBody, Expr, FuncBody, FunDef, Literal, Program, Stmt, Type, VarDef } from "./ast";
 import { ParseError } from "./cli/error";
 
 type FunctionsEnv = Map<string, [Type[], Type]>;
@@ -132,12 +132,6 @@ export function tcStmt(s : Stmt<any>, functions : FunctionsEnv, variables : Body
       // }
       return { ...s, value: rhs };
     }
-    case "define": {
-      const bodyvars = new Map<string, Type>(variables.entries());
-      s.params.forEach(p => { bodyvars.set(p.name, p.typ)});
-      const newStmts = s.body.map(bs => tcStmt(bs, functions, bodyvars, s.ret));
-      return { ...s, body: newStmts };
-    }
     case "expr": {
       const ret = tcExpr(s.expr, functions, variables);
       return { ...s, expr: ret };
@@ -172,26 +166,42 @@ export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv, var
   return { cond: newCond, body: newBody};
 }
 
-export function tcProgram(p : Stmt<any>[]) : Stmt<Type>[] {
+export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, variables: BodyEnv, currentReturn: Type) {
+  const bodyvars = new Map<string, Type>(variables.entries());
+  f.params.forEach(p => { bodyvars.set(p.name, p.typ) });
+  const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars, variables))
+  const newStmts = f.body.stmts.map(bs => tcStmt(bs, functions, bodyvars, f.ret));
+  return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
+}
+
+export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv, global: BodyEnv): VarDef<Type> {
+  const rhs = tcExpr(s.value, functions, local);
+  if (local.has(s.var.name) && !global.has(s.var.name)) {
+    throw new Error(`Duplicate declaration of identifier in the same scope: ${s.var.name}`);
+  }
+  else
+    local.set(s.var.name, s.var.typ);
+  if (local.get(s.var.name) !== rhs.a) {
+    throw new Error(`Cannot assign ${rhs} to ${local.get(s.var.name)}`);
+  }
+  return { ...s, value: rhs };
+}
+
+export function tcProgram(p: Program<any>): Program<Type> {
   const functions = new Map<string, [Type[], Type]>();
-  p.forEach(s => {
-    if(s.tag === "define") {
-      functions.set(s.name, [s.params.map(p => p.typ), s.ret]);
-    }
+  p.fundefs.forEach(s => {
+    functions.set(s.name, [s.params.map(p => p.typ), s.ret]);
   });
 
   const globals = new Map<string, Type>();
-  return p.map(s => {
+  const vardefs = p.vardefs.map(s => {
+    return {...s, global: true}
+  }).map(s => tcVarDef(s, functions, globals, new Map<string, Type>()));
+  const fundefs = p.fundefs.map(s => tcFunc(s, functions, globals, "none"));
+
+  const stmts =  p.stmts.map(s => {
     const res = tcStmt(s, functions, globals, "none");
     return res;
-    // if(s.tag === "assign") {
-    //   const rhs = tcExpr(s.value, functions, globals);
-    //   globals.set(s.name, rhs.a);
-    //   return { ...s, value: rhs };
-    // }
-    // else {
-    //   const res = tcStmt(s, functions, globals, "none");
-    //   return res;
-    // }
   });
+  return { vardefs, fundefs, stmts };
 }

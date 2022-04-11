@@ -1,14 +1,14 @@
 export type Program<A> = 
-  { a?: A, vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
+  { vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
 
 export type VarDef<A> =
-  { a?: A, tag: "declare", var: TypedVar, value: Expr<A> };
+  { var: TypedVar, value: Expr<A>, global?: boolean };
 
 export type FunDef<A> = 
-  { a?: A, tag: "define", name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A>[] }
+  { name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A> }
 
 export type FuncBody<A> = 
-  { vardefs: VarDef<A>[],  body: Stmt<A> }
+  { vardefs: VarDef<A>[],  stmts: Stmt<A>[] }
 
 export type Type =
   | "int"

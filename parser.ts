@@ -1,34 +1,45 @@
 import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
-import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody } from './ast';
+import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, FunDef, Program } from './ast';
 import { ParseError } from './error';
 
-export function parseProgram(source : string) : Array<Stmt<any>> {
+export function parseProgram(source: string): Program<any> {
   const t = parser.parse(source).cursor();
-  const stmts = traverseStmts(t, source);
-  return stmts;
+  return traverseProgram(t, source);
 }
+
+export function traverseProgram(t: TreeCursor, s: string) {
+  // The top node in the program is a Script node with a list of children
+  // that are various statements
+  switch (t.node.type.name) {
+    case "Script":
+      var vardefs : VarDef<any>[] = [];
+      var fundefs : FunDef<any>[] = [];
+      var stmts : Stmt<any>[] = [];
+      t.firstChild();
+      do {
+        traverseStmt(t, s, stmts, vardefs, fundefs);
+      } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
+                                 //  the end of the list of children
+      // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
+      return { vardefs, fundefs, stmts};
+    default:
+      throw new ParseError("Could not parse program at " + t.node.from + " " + t.node.to);
+  }
+}
+
 
 export function traverseStmts(t: TreeCursor, s: string) {
   // The top node in the program is a Script node with a list of children
   // that are various statements
   switch (t.node.type.name) {
-    case "Script":
-      var stmts = [];
-      t.firstChild();
-      do {
-        stmts.push(traverseStmt(t, s));
-      } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
-                                 //  the end of the list of children
-      // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
-      return stmts;
     case "Body":
       // focus on Body
-      var stmts = [];
+      var stmts: Stmt<any>[] = []
       t.firstChild(); // focus on semicolon
       t.nextSibling()
       do {
-        stmts.push(traverseStmt(t, s));
+        traverseStmt(t, s, stmts);
       } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
       //  the end of the list of children
       t.parent();
@@ -38,10 +49,14 @@ export function traverseStmts(t: TreeCursor, s: string) {
   }
 }
 
+
 /*
   Invariant – t must focus on the same node at the end of the traversal
 */
-export function traverseStmt(t: TreeCursor, s: string,): Stmt<any> {
+export function traverseStmt(t: TreeCursor, s: string, 
+  stmts: Stmt<any>[] = [], vardefs: VarDef<any>[] = [], 
+  fundefs: FunDef<any>[] = [], 
+  ) {
   switch(t.type.name) {
     case "ReturnStatement":
       t.firstChild();  // Focus return keyword
@@ -53,19 +68,20 @@ export function traverseStmt(t: TreeCursor, s: string,): Stmt<any> {
       else
         value = traverseExpr(t, s);
       t.parent();
-      return { tag: "return", value };
+      stmts.push({ tag: "return", value });
+      break;
     case "AssignStatement":
       // assign: x = 1
       // declare: x:int = 1
       t.firstChild(); // focused on name (the first child)
       var name = s.substring(t.from, t.to);
       t.nextSibling(); // could be = sign or Typedef
-      var ret: Type = undefined;
+      var typ: Type = undefined;
       var maybeTD = t;
       if (maybeTD.type.name === "TypeDef") {
         t.firstChild(); // focus on :
         t.nextSibling(); // focus on type
-        ret = traverseType(t, s);
+        typ = traverseType(t, s);
         t.parent();
         t.nextSibling(); // focus on = sign
       }
@@ -75,16 +91,21 @@ export function traverseStmt(t: TreeCursor, s: string,): Stmt<any> {
       var value = traverseExpr(t, s);
       t.parent();
       // return { tag: "assign", name, value, ret };
-      if (ret === undefined)
-        return { tag: "assign", name, value };
+      if (typ === undefined)
+        return stmts.push({ tag: "assign", name, value });
       else 
-        return { tag: "assign", name, typ: ret, value };
+        return vardefs.push({ 
+          var: {name, typ}, 
+          value 
+        });
+      break;
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
                       // ExpressionStatement is just a wrapper with no information
       var expr = traverseExpr(t, s);
       t.parent();
-      return { tag: "expr", expr: expr };
+      stmts.push({ tag: "expr", expr: expr });
+      break;
     case "FunctionDefinition":
       t.firstChild();  // Focus on def
       t.nextSibling(); // Focus on name of function
@@ -101,18 +122,20 @@ export function traverseStmt(t: TreeCursor, s: string,): Stmt<any> {
       }
       t.nextSibling(); // Focus on single statement (for now)
       t.firstChild();  // Focus on :
-      const body = [];
+      const localvar: VarDef<any>[] = []
+      const body: Stmt<any>[] = [];
       while(t.nextSibling()) {
-        body.push(traverseStmt(t, s));
+        traverseStmt(t, s, body, localvar);
       }
       t.parent();      // Pop to Body
       t.parent();      // Pop to FunctionDefinition
-      return {
-        tag: "define",
-        name, params, body, ret
-      }
+      fundefs.push({
+        name, params, ret,
+        body: { vardefs: localvar, stmts: body}
+      });
+      break;
     case "PassStatement":
-      return { tag: "pass"}
+      stmts.push({ tag: "pass"}); break;
     case "IfStatement":
       t.firstChild();  // Focus on if
       let ifstmt = traverseCondBody(t, s);
@@ -129,15 +152,17 @@ export function traverseStmt(t: TreeCursor, s: string,): Stmt<any> {
         elsestmt = traverseStmts(t, s);
       }
       t.parent();
-      return {
+      stmts.push({
         tag: "if", 
         ifstmt, elifstmt, elsestmt
-      };
+      });
+      break;
     case "WhileStatement":
       t.firstChild();  // Focus on while
       let whilestmt = traverseCondBody(t, s);
       t.parent();
-      return { tag: "while", whilestmt};
+      stmts.push({ tag: "while", whilestmt});
+      break;
   }
 }
 
@@ -155,7 +180,7 @@ export function traverseType(t: TreeCursor, s: string) : Type {
   }
 }
 
-export function traverseParameters(t: TreeCursor, s: string,) : Parameter[] {
+export function traverseParameters(t: TreeCursor, s: string,): TypedVar[] {
   t.firstChild();  // Focuses on open paren
   const parameters = []
   t.nextSibling(); // Focuses on a VariableName
