@@ -169,7 +169,10 @@ export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, variables: BodyE
   let bodyvars = new Map<string, Type>();
   f.params.forEach(p => { bodyvars.set(p.name, p.typ) });
   const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars))
-  variables.forEach((v, k) => bodyvars.set(k, v))
+  variables.forEach((v, k) => {
+    if (!bodyvars.has(k))
+      bodyvars.set(k, v)
+  });
   const newStmts = f.body.stmts.map(bs => tcStmt(bs, functions, bodyvars, f.ret));
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
 }
