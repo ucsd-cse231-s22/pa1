@@ -257,7 +257,7 @@ describe('test functions', () => {
         expect(importObject.output).to.equal("10\n10\n");
     });
 
-    it('none', async () => {
+    it('function 1', async () => {
         await runTest(`
                 y:bool = False
                 def f(x:int)->bool:
@@ -266,6 +266,18 @@ describe('test functions', () => {
                 print(y)
         `);
         expect(importObject.output).to.equal("True\n");
+    });
+
+    it('function 2', async () => {
+        await runTest(`
+                x:int = 4
+                y:int = 0
+                def sqr(x:int)->int:
+                    return x * x
+                y = sqr(3) + sqr(x)
+                print(y)
+        `);
+        expect(importObject.output).to.equal("25\n");
     });
     
     it('none', async () => {
