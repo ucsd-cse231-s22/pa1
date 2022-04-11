@@ -45,7 +45,12 @@ export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
     case "ReturnStatement":
       t.firstChild();  // Focus return keyword
       t.nextSibling(); // Focus expression
-      var value = traverseExpr(t, s);
+      var maybeRT = t;
+      var value : Expr<any>;
+      if (maybeRT.type.name === "⚠")
+        value = { tag: "literal", value: {tag: "none"} };
+      else
+        value = traverseExpr(t, s);
       t.parent();
       return { tag: "return", value };
     case "AssignStatement":
@@ -71,9 +76,8 @@ export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
       // return { tag: "assign", name, value, ret };
       if (ret === undefined)
         return { tag: "assign", name, value };
-      else {
+      else 
         return { tag: "assign", name, typ: ret, value };
-      }
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
                       // ExpressionStatement is just a wrapper with no information
@@ -140,7 +144,7 @@ export function traverseType(t: TreeCursor, s: string) : Type {
   switch(t.type.name) {
     case "VariableName":
       const name = s.substring(t.from, t.to);
-      if(name !== "int") {
+      if (name !== "int" && name !== "bool" && name != "none" ) {
         throw new Error("Unknown type: " + name)
       }
       return name;
@@ -188,7 +192,7 @@ export function traverseExpr(t: TreeCursor, s: string) : Expr<any> {
       t.firstChild(); // Focus name
       var name = s.substring(t.from, t.to);
       t.nextSibling(); // Focus ArgList
-      t.firstChild(); // Focus open paren
+      // t.firstChild(); // Focus open paren
       var args = traverseArguments(t, s);
       var result : Expr<any> = { tag: "call", name, args: args};
       t.parent();
@@ -244,6 +248,9 @@ export function traverseArguments(t : TreeCursor, s : string) : Expr<any>[] {
   const args = [];
   t.firstChild(); // Focuses on open paren
   while (t.nextSibling()) { // Focuses on a VariableName
+    if (t.type.name === ")") {
+      break
+    }
     args.push(traverseExpr(t, s));
     t.nextSibling(); // Focuses on either "," or ")"
   }
