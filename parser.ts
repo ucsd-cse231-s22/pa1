@@ -162,7 +162,9 @@ export function traverseParameters(t: TreeCursor, s: string,) : Parameter[] {
     let name = s.substring(t.from, t.to);
     t.nextSibling(); // Focuses on "TypeDef", hopefully, or "," if mistake
     let nextTagName = t.type.name; // NOTE(joe): a bit of a hack so the next line doesn't if-split
-    if(nextTagName !== "TypeDef") { throw new Error("Missed type annotation for parameter " + name)};
+    if(nextTagName !== "TypeDef") { 
+      throw new Error("Missed type annotation for parameter " + name)
+    };
     t.firstChild();  // Enter TypeDef
     t.nextSibling(); // Focuses on type itself
     let typ = traverseType(t, s);

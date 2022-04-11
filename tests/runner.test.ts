@@ -214,6 +214,30 @@ describe('test functions', () => {
         expect(importObject.output).to.equal("1\n");
     });
 
+    it('global var', async () => {
+        await runTest(`
+            x:int = 10
+            def fun():
+                x = 1
+                return
+            fun()
+            print(x)
+        `);
+        expect(importObject.output).to.equal("1\n");
+    });
+
+    it('local var', async () => {
+        await runTest(`
+            x:int = 10
+            def fun(x: int):
+                x = 1
+                return
+            fun(x)
+            print(x)
+        `);
+        expect(importObject.output).to.equal("10\n");
+    });
+
     // it('elif expression 1', async () => {
     //     await runTest(`
     //         x = 25

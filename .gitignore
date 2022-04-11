@@ -16,3 +16,4 @@ test.js
 error.js
 test*
 node-cli*
+*.log
