@@ -237,6 +237,18 @@ describe('test functions', () => {
         `);
         expect(importObject.output).to.equal("10\n");
     });
+    
+    it('none', async () => {
+        await runTest(`
+            def fun1():
+                return None
+            def fun2():
+                return
+            print(fun1())
+            print(fun2())
+        `);
+        expect(importObject.output).to.equal("None\nNone\n");
+    });
 
     // it('elif expression 1', async () => {
     //     await runTest(`
