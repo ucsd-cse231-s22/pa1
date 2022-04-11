@@ -6,31 +6,6 @@ import { ParseError } from './error';
 export function parseProgram(source : string) : Array<Stmt<any>> {
   const t = parser.parse(source).cursor();
   const stmts = traverseStmts(t, source);
-  const vardefs = stmts.filter(stmt => {
-    return stmt.tag == "assign" && stmt.typ
-  }).map(stmt => {
-    if (stmt.tag !== "assign")
-      return false;
-    else
-      return {
-        tag: "declare",
-        var: { name: stmt.name, typ: stmt?.typ },
-        value: stmt.value
-      };
-  }) 
-  const fundefs = stmts.filter(stmt => {
-    return stmt.tag === "define"
-  }).map(stmt => {
-    if (stmt.tag !== "assign")
-      return false;
-    else
-      return {
-        tag: "declare",
-        var: { name: stmt.name, typ: stmt?.typ },
-        value: stmt.value
-      };
-  }) 
-
   return stmts;
 }
 
