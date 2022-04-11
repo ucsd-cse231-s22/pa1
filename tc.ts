@@ -59,6 +59,11 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
         // case "and": return { ...e, a: "bool" };
         // case "or": return { ...e, a: "bool" };
         case "is":
+          // TODO: "is" operation is not complete yet
+          if (nRHS.a != "none" || nLHS.a != "none") {
+            throw new TypeError(`Cannot apply operator '${e.op}' on
+              types '${nLHS.a}' and '${nRHS.a}'`)
+          }
           return { ...e, a: "bool", lhs: nLHS, rhs: nRHS};
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
@@ -182,7 +187,7 @@ export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv
   else
     local.set(s.var.name, s.var.typ);
   if (local.get(s.var.name) !== rhs.a) {
-    throw new Error(`Cannot assign ${rhs} to ${local.get(s.var.name)}`);
+    throw new Error(`Cannot assign ${rhs.a} to ${local.get(s.var.name)}`);
   }
   return { ...s, value: rhs };
 }
@@ -194,9 +199,7 @@ export function tcProgram(p: Program<any>): Program<Type> {
   });
 
   const globals = new Map<string, Type>();
-  const vardefs = p.vardefs.map(s => {
-    return {...s, global: true}
-  }).map(s => tcVarDef(s, functions, globals, new Map<string, Type>()));
+  const vardefs = p.vardefs.map(s => tcVarDef(s, functions, globals, new Map<string, Type>()));
   const fundefs = p.fundefs.map(s => tcFunc(s, functions, globals, "none"));
 
   const stmts =  p.stmts.map(s => {

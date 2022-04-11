@@ -46,7 +46,7 @@ export function opStmts(op : BinOp) {
     case "!=": return [`i32.ne`];
     // case "and": return [`i32.and`];
     // case "or": return [`i32.or`];
-    // TODO: case "is": return [`i32.and`];
+    case "is": return [`i32.eq`];
     default:
       throw new Error(`Unhandled or unknown op: ${op}`);
   }
@@ -181,14 +181,25 @@ export function codeGenFun(f: FunDef<Type>, locals: Env): Array<string> {
   // Construct the code for params and variable declarations in the body
   const params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
   const varDecls = variables.map(v => `(local $${v} i32)`).join("\n");
+  const varAssign = f.body.vardefs.map(v => codeGenVars(v, withParamsAndVariables)).join("\n");
 
   const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables)).flat();
   const stmtsBody = stmts.join("\n");
   return [`(func $${f.name} ${params} (result i32)
         (local $scratch i32)
         ${varDecls}
+        ${varAssign}
         ${stmtsBody}
         (i32.const 0))`];
+}
+
+export function codeGenVars(v: VarDef<Type>, locals: Env): string {
+  var valStmts: Array<string> = codeGenExpr(v.value, locals).flat();
+  // valStmts = valStmts.concat();
+  if (locals.has(v.var.name)) { 
+    valStmts.push(`(local.set $${v.var.name})`); }
+  else { valStmts.push(`(global.set $${v.var.name})`); }
+  return valStmts.join("\n");
 }
 
 export function compile(source : string) : string {
@@ -199,10 +210,11 @@ export function compile(source : string) : string {
   const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv)).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
   const varDecls = vars.map(v => `(global $${v} (mut i32) (i32.const 0))`).join("\n");
+  const varAssign = ast.vardefs.map(v => codeGenVars(v, emptyEnv));
 
   const allStmts = stmts.map(s => codeGenStmt(s, emptyEnv)).flat();
 
-  const main = [`(local $scratch i32)`, ...allStmts].join("\n");
+  const main = [`(local $scratch i32)`, ...varAssign, ...allStmts].join("\n");
 
   const lastStmt = ast.stmts[ast.stmts.length - 1];
   const isExpr = lastStmt.tag === "expr";
@@ -220,6 +232,7 @@ export function compile(source : string) : string {
       (func $print_none (import "imports" "print_none") (param i32) (result i32))
       ${varDecls}
       ${allFuns}
+      
       (func (export "_start") ${retType}
         ${main}
         ${retVal}

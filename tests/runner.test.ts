@@ -63,9 +63,19 @@ describe('run(source, config) function', () => {
         expect(importObject.output).to.equal("True\n");
     });
 
+    it('prints None', async () => {
+        await runTest("print(None)");
+        expect(importObject.output).to.equal("None\n");
+    });
+
     it('reference itself', async () => {
         await runTest("x:int = 1\nx = x+1\nprint(x)");
         expect(importObject.output).to.equal("2\n");
+    });
+
+    it('expression', async () => {
+        await runTest("x:int = (2 + 3) * (5 + 10 // 4)\nprint(x)");
+        expect(importObject.output).to.equal("35\n");
     });
 
   // it('prints a unary operation', async () => {
@@ -75,7 +85,7 @@ describe('run(source, config) function', () => {
 
 });
 
-describe('test binary operation', () => {
+describe('test operations', () => {
     const config = { importObject };
 
     it('number operation', async () => {
@@ -89,7 +99,7 @@ describe('test binary operation', () => {
         expect(importObject.output).to.equal("3\n4\n20\n3\n1\n");
     });
 
-    it('comparsion operation', async () => {
+    it('relational operation', async () => {
         await runTest(`
             print(1>2)
             print(1<2)
@@ -102,32 +112,30 @@ describe('test binary operation', () => {
         expect(importObject.output).to.equal("False\nTrue\nFalse\nTrue\nFalse\nTrue\nTrue\n");
     });
 
+    it('is operation', async () => {
+        await runTest(`
+            print(None is None)
+        `);
+        expect(importObject.output).to.equal("True\n");
+    });
+
+    it('unary operation', async () => {
+        await runTest(`
+            print(-2)
+            print(-(-4))
+            print(not True)
+            print(not False)
+            y:int = -5\nx:int=-y\nprint(x)\nprint(-(-x))
+        `);
+        expect(importObject.output).to.equal("-2\n4\nFalse\nTrue\n5\n5\n");
+    });
+
     // TODO: test "is"
     // it('is operation', async () => {
     //     await runTest("1 is 2");
     //     expect(importObject.output).to.equal("False\n");
     // });
 
-});
-
-
-describe('test unary operation', () => {
-    const config = { importObject };
-
-    it('prints a unary operation 1', async () => {
-        await runTest("print(-2)");
-        expect(importObject.output).to.equal("-2\n");
-    });
-
-    it('prints a unary operation 2', async () => {
-        await runTest("print(not True)");
-        expect(importObject.output).to.equal("False\n");
-    });
-
-    it('prints a unary operation 3', async () => {
-        await runTest("y:int = -5\nx:int=-y\nprint(x)\nprint(-(-x))");
-        expect(importObject.output).to.equal("5\n5\n");
-    });
 });
 
 describe('test control flow', () => {

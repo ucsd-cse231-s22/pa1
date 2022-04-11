@@ -2,7 +2,7 @@ export type Program<A> =
   { vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
 
 export type VarDef<A> =
-  { var: TypedVar, value: Expr<A>, global?: boolean };
+  { var: TypedVar, value: Expr<A> };
 
 export type FunDef<A> = 
   { name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A> }
