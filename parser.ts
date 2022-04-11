@@ -72,7 +72,7 @@ export function traverseStmt(t: TreeCursor, s: string,) : Stmt<any> {
       if (ret === undefined)
         return { tag: "assign", name, value };
       else {
-        return { tag: "assign", name, ret, value };
+        return { tag: "assign", name, typ: ret, value };
       }
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
@@ -174,10 +174,14 @@ export function traverseParameters(t: TreeCursor, s: string,) : Parameter[] {
 export function traverseExpr(t: TreeCursor, s: string) : Expr<any> {
   switch(t.type.name) {
     case "Boolean":
-      if(s.substring(t.from, t.to) === "True") { return { tag: "true" }; }
-      else { return { tag: "false" }; }
+      if(s.substring(t.from, t.to) === "True") { 
+        return { tag: "literal", value: { tag: "bool", value: true } };
+      }
+      else { 
+        return { tag: "literal", value: { tag: "bool", value: false } };
+      }
     case "Number":
-      return { tag: "number", value: Number(s.substring(t.from, t.to)) };
+      return { tag: "literal", value: { tag: "number", value: Number(s.substring(t.from, t.to)) } };
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
     case "CallExpression":

@@ -1,4 +1,4 @@
-import { CondBody, Expr, Stmt, Type } from "./ast";
+import { CondBody, Expr, Literal, Stmt, Type } from "./ast";
 import { ParseError } from "./cli/error";
 
 type FunctionsEnv = Map<string, [Type[], Type]>;
@@ -6,9 +6,19 @@ type BodyEnv = Map<string, Type>;
 
 export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : BodyEnv) : Expr<Type> {
   switch(e.tag) {
-    case "number": return { ...e, a: "int" };
-    case "true": return { ...e, a: "bool" };
-    case "false": return { ...e, a: "bool" };
+    // case "number": return { ...e, a: "int" };
+    // case "true": return { ...e, a: "bool" };
+    // case "false": return { ...e, a: "bool" };
+    case "literal":
+      switch(e.value.tag) {
+        case "number":
+          return { ...e, a: "int" };
+        case "bool":
+          return { ...e, a: "bool" };
+        case "none": 
+          return {...e, a: "none"};
+      }
+
     case "binop": {
       const nLHS = tcExpr(e.lhs, functions, variables);
       const nRHS = tcExpr(e.rhs, functions, variables);
@@ -101,12 +111,11 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
   }
 }
 
-
 export function tcStmt(s : Stmt<any>, functions : FunctionsEnv, variables : BodyEnv, currentReturn : Type) : Stmt<Type> {
   switch(s.tag) {
     case "assign": {
       const rhs = tcExpr(s.value, functions, variables);
-      if (s?.ret) {
+      if (s?.typ) {
         variables.set(s.name, rhs.a);
       }
       if (!variables.has(s.name)) {

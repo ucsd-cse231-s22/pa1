@@ -3,6 +3,11 @@ export type Type =
   | "bool"
   | "none"
 
+export type Literal = 
+  | { tag: "number", value: number }
+  | { tag: "bool", value: boolean }
+  | { tag: "none" }
+
 export type Parameter =
   | { name: string, typ: Type }
 
@@ -10,7 +15,7 @@ export type CondBody<A> =
   { cond: Expr<A>, body: Stmt<A>[]}
 
 export type Stmt<A> =
-  | { a?: A, tag: "assign", name: string, value: Expr<A>, ret?: Type }
+  | { a?: A, tag: "assign", name: string, value: Expr<A>, typ?: Type }
   | { a?: A, tag: "expr", expr: Expr<A> }
   | { a?: A, tag: "define", name: string, params: Parameter[], ret: Type, body: Stmt<A>[] }
   | { a?: A, tag: "return", value: Expr<A> }
@@ -19,24 +24,12 @@ export type Stmt<A> =
   | { a?: A, tag: "while", whilestmt: CondBody<A> }
 
 export type Expr<A> = 
-  | { a?: A, tag: "number", value: number }
-  | { a?: A, tag: "true" }
-  | { a?: A, tag: "false" }
+  | { a?: A, tag: "literal", value: Literal }
   | { a?: A, tag: "binop", op: BinOp, lhs: Expr<A>, rhs: Expr<A> }
   | { a?: A, tag: "unop", op: UnOp, expr: Expr<A> }
   | { a?: A, tag: "id", name: string, global?: boolean }
   | { a?: A, tag: "call", name: string, args: Expr<A>[] }
 
-// export enum UnOp {
-//   Plus = "+",
-//   Minus = "-",
-// }
-
-// export enum BinOp {
-//   Plus = "+",
-//   Minus = "-",
-//   Mul = "*"
-// }
 
 const binops = {
   "+": true, "-": true, "*": true, "//": true, "%": true,

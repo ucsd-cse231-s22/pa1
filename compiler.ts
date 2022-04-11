@@ -11,7 +11,7 @@ function variableNames(stmts: Stmt<Type>[]) : string[] {
   const var_set = new Set();
 
   stmts.forEach((stmt) => {
-    if (stmt.tag === "assign" && !var_set.has(stmt.name) && stmt?.ret) { 
+    if (stmt.tag === "assign" && !var_set.has(stmt.name) && stmt?.typ) { 
       vars.push(stmt.name); 
       var_set.add(stmt.name);
     }
@@ -60,9 +60,21 @@ export function opStmts(op : BinOp) {
 
 export function codeGenExpr(expr : Expr<Type>, locals : Env) : Array<string> {
   switch(expr.tag) {
-    case "number": return [`(i32.const ${expr.value})`];
-    case "true": return [`(i32.const 1)`];
-    case "false": return [`(i32.const 0)`];
+    case "literal": 
+      if (expr.value.tag === "number")
+        return [`(i32.const ${expr.value.value})`];
+      else if (expr.value.tag === "bool"){
+        if (expr.value.value)
+          return [`(i32.const 1)`];
+        else
+          return [`(i32.const 0)`];
+      }
+      else {
+        // none
+        return [`(i32.const 0)`];
+      }
+    // case "true": return [`(i32.const 1)`];
+    // case "false": 
     case "id":
       // Since we type-checked for making sure all variable exist, here we
       // just check if it's a local variable and assume it is global if not
