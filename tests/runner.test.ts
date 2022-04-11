@@ -44,28 +44,20 @@ describe('run(source, config) function', () => {
   
     // We can test the behavior of the compiler in several ways:
     // 1- we can test the return value of a program
-    // Note: since run is an async function, we use await to retrieve the 
-    // asynchronous return value. 
-    it('returns the right number', async () => {
-        const result = await runTest("987");
-        expect(result).to.equal(987);
-    });
-
+    // Note: since run is an async function, we use await to retrieve the
+    // asynchronous return value.
     // Note: it is often helpful to write tests for a functionality before you
     // implement it. You will make this test pass!
-    it('adds two numbers', async() => {
-        const result = await runTest("2 + 3");
+    it('returns the right number', async () => {
+        var result = await runTest("987");
+        expect(result).to.equal(987);
+        var result = await runTest("2 + 3");
         expect(result).to.equal(5);
     });
 
-    it('prints a boolean', async() => {
-        await runTest("print(True)");
-        expect(importObject.output).to.equal("True\n");
-    });
-
-    it('prints None', async () => {
-        await runTest("print(None)");
-        expect(importObject.output).to.equal("None\n");
+    it('print function', async() => {
+        await runTest("print(11)\nprint(True)\nprint(None)");
+        expect(importObject.output).to.equal("11\nTrue\nNone\n");
     });
 
     it('reference itself', async () => {
@@ -77,12 +69,6 @@ describe('run(source, config) function', () => {
         await runTest("x:int = (2 + 3) * (5 + 10 // 4)\nprint(x)");
         expect(importObject.output).to.equal("35\n");
     });
-
-  // it('prints a unary operation', async () => {
-  //   await runTest("print(1)");
-  //   expect(importObject.output).to.equal("1\n");
-  // });
-
 });
 
 describe('test operations', () => {
@@ -256,13 +242,30 @@ describe('test functions', () => {
     it('local var', async () => {
         await runTest(`
             x:int = 10
-            def fun(x: int):
+            def fun1(x: int):
                 x = 1
                 return
-            fun(x)
+            def fun2():
+                x:int = 1
+                return
+            fun1(x)
+            print(x)
+            x = 10
+            fun2()
             print(x)
         `);
-        expect(importObject.output).to.equal("10\n");
+        expect(importObject.output).to.equal("10\n10\n");
+    });
+
+    it('none', async () => {
+        await runTest(`
+                y:bool = False
+                def f(x:int)->bool:
+                    return x == 1
+                y = f(1)
+                print(y)
+        `);
+        expect(importObject.output).to.equal("True\n");
     });
     
     it('none', async () => {
@@ -276,6 +279,74 @@ describe('test functions', () => {
         `);
         expect(importObject.output).to.equal("None\nNone\n");
     });
+
+    it('function error', async () => {
+        try {
+            await runTest(`
+                def f(x:int)->int:
+                    y:bool = False
+                    return y
+            `);
+        } catch (error) {
+            expect(error.name).to.equal("TypeError");
+        }
+        try {
+            await runTest(`
+                y:bool = False
+                def f(x:int)->int:
+                    return x
+                f(y)
+            `);
+        } catch (error) {
+            expect(error.name).to.equal("TypeError");
+        }
+        try {
+            await runTest(`
+                y:int = 1
+                def f(x:int)->int:
+                    return x
+                f(y, y)
+            `);
+        } catch (error) {
+            expect(error.message).to.equal(`Expected 1 arguments; got 2`);
+        }
+        
+        try {
+            await runTest(`
+                y:int = 1
+                def f(x:int)->bool:
+                    return x == 1
+                y = f(1)
+            `);
+        } catch (error) {
+            expect(error.name).to.equal(`TypeError`);
+        }
+
+    });
+
+    it('redefinition', async () => {
+        try {
+            await runTest(`
+                x:int = 1
+                x:int = 2
+            `);
+        } catch (error) {
+            expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
+        }
+
+        try {
+            await runTest(`
+                x:int = 1
+                def f(x:int)->int:
+                    x:int = 1
+                    return x
+                x = f(x)
+            `);
+        } catch (error) {
+            expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
+        }
+    });
+
 
     // it('elif expression 1', async () => {
     //     await runTest(`

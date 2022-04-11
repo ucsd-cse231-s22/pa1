@@ -106,7 +106,7 @@ export function tcExpr(e : Expr<any>, functions : FunctionsEnv, variables : Body
       const newArgs = args.map((a, i) => {
         const argtyp = tcExpr(e.args[i], functions, variables);
         if(a !== argtyp.a) { 
-          throw new Error(`Expected ${a}; got type ${argtyp} in parameter ${i + 1}`); 
+          throw new TypeError(`Expected ${a}; got type ${argtyp} in parameter ${i + 1}`); 
         }
         return argtyp
       });
@@ -137,7 +137,7 @@ export function tcStmt(s : Stmt<any>, functions : FunctionsEnv, variables : Body
     case "return": {
       const valTyp = tcExpr(s.value, functions, variables);
       if(valTyp.a !== currentReturn) {
-        throw new Error(`${valTyp} returned but ${currentReturn} expected.`);
+        throw new TypeError(`${valTyp} returned but ${currentReturn} expected.`);
       }
       return { ...s, value: valTyp };
     }
@@ -165,16 +165,18 @@ export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv, var
 }
 
 export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, variables: BodyEnv, currentReturn: Type) {
-  const bodyvars = new Map<string, Type>(variables.entries());
+  // const bodyvars = new Map<string, Type>(variables.entries());
+  let bodyvars = new Map<string, Type>();
   f.params.forEach(p => { bodyvars.set(p.name, p.typ) });
-  const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars, variables))
+  const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars))
+  variables.forEach((v, k) => bodyvars.set(k, v))
   const newStmts = f.body.stmts.map(bs => tcStmt(bs, functions, bodyvars, f.ret));
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
 }
 
-export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv, global: BodyEnv): VarDef<Type> {
+export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv): VarDef<Type> {
   const rhs = tcExpr(s.value, functions, local);
-  if (local.has(s.var.name) && !global.has(s.var.name)) {
+  if (local.has(s.var.name)) {
     throw new Error(`Duplicate declaration of identifier in the same scope: ${s.var.name}`);
   }
   else
@@ -192,7 +194,7 @@ export function tcProgram(p: Program<any>): Program<Type> {
   });
 
   const globals = new Map<string, Type>();
-  const vardefs = p.vardefs.map(s => tcVarDef(s, functions, globals, new Map<string, Type>()));
+  const vardefs = p.vardefs.map(s => tcVarDef(s, functions, globals));
   const fundefs = p.fundefs.map(s => tcFunc(s, functions, globals, "none"));
 
   const stmts =  p.stmts.map(s => {
