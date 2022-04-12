@@ -320,11 +320,15 @@ export function traverseArguments(t: TreeCursor, s: string): Expr<any>[] {
   const args = [];
   t.firstChild(); // Focuses on open paren
   while (t.nextSibling()) { // Focuses on a VariableName
-    if (t.type.name === ")") {
+    if (t.type.name === ")") { // maybe no args
       break
     }
     args.push(traverseExpr(t, s));
     t.nextSibling(); // Focuses on either "," or ")"
+    if (t.type.name !== ")" && t.type.name !== ",") { // maybe no args
+      throw new ParseError("Could not parse expr at " +
+        t.from + " " + t.to + ": " + s.substring(t.from, t.to));
+    }
   }
   t.parent(); // Pop to ArgList
   return args;
