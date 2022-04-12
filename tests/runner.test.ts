@@ -226,17 +226,6 @@ describe('test functions', () => {
         expect(importObject.output).to.equal("1\n");
     });
 
-    it('global var', async () => {
-        await runTest(`
-            x:int = 10
-            def fun():
-                x = 1
-                return
-            fun()
-            print(x)
-        `);
-        expect(importObject.output).to.equal("1\n");
-    });
 
     it('local var', async () => {
         await runTest(`
@@ -365,6 +354,56 @@ describe('test functions', () => {
         }
 
     });
+
+    it('function variable scope error', async () => {
+        try {
+            await runTest(`
+                x:int = 10
+                def fun():
+                    x = 1
+                    return
+                fun()
+                print(x)
+            `);
+        } catch (error) {
+            expect(error.message).to.equal("Cannot assign variable " +
+                "that is not explicitly declared in this scope: x");
+        }
+
+        try {
+            await runTest(`
+                y:bool = False
+                def f(x:int)->int:
+                    return x
+                f(y)
+            `);
+        } catch (error) {
+            expect(error.name).to.equal("TypeError");
+        }
+        try {
+            await runTest(`
+                y:int = 1
+                def f(x:int)->int:
+                    return x
+                f(y, y)
+            `);
+        } catch (error) {
+            expect(error.message).to.equal(`Expected 1 arguments; got 2`);
+        }
+
+        try {
+            await runTest(`
+                y:int = 1
+                def f(x:int)->bool:
+                    return x == 1
+                y = f(1)
+            `);
+        } catch (error) {
+            expect(error.name).to.equal(`TypeError`);
+        }
+
+    });
+
 
     it('redefinition', async () => {
         try {

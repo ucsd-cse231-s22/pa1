@@ -111,7 +111,8 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
   }
 }
 
-export function tcStmt(s: Stmt<any>, functions: FunctionsEnv, variables: BodyEnv, currentReturn: Type): Stmt<Type> {
+export function tcStmt(s: Stmt<any>, functions: FunctionsEnv, 
+  variables: BodyEnv, currentReturn: Type, global: BodyEnv): Stmt<Type> {
   switch (s.tag) {
     case "assign": {
       const rhs = tcExpr(s.value, functions, variables);
@@ -119,7 +120,10 @@ export function tcStmt(s: Stmt<any>, functions: FunctionsEnv, variables: BodyEnv
         variables.set(s.name, rhs.a);
       }
       if (!variables.has(s.name)) {
-        throw new Error(`Not a variable: ${s.name}`);
+          if (global.has(s.name)) 
+            throw new Error(`Cannot assign variable that is not explicitly declared in this scope: ${s.name}`);
+          else
+            throw new Error(`Not a variable: ${s.name}`);
       }
       else if (variables.get(s.name) !== rhs.a) {
         throw new TypeError(`Expect type '${variables.get(s.name)}'; got type '${rhs.a}'`);
@@ -141,35 +145,41 @@ export function tcStmt(s: Stmt<any>, functions: FunctionsEnv, variables: BodyEnv
       return s;
     }
     case "if": {
-      const ifstmt = tcCondBody(s.ifstmt, functions, variables, currentReturn);
-      const elifstmt = s.elifstmt.map(p => tcCondBody(p, functions, variables, currentReturn));
-      const elsestmt = s.elsestmt.map(p => tcStmt(p, functions, variables, currentReturn));
+      const ifstmt = tcCondBody(s.ifstmt, functions, variables, currentReturn, global);
+      const elifstmt = s.elifstmt.map(p => tcCondBody(p, functions, variables, currentReturn, global));
+      const elsestmt = s.elsestmt.map(p => tcStmt(p, functions, variables, currentReturn, global));
       return { ...s, ifstmt, elifstmt, elsestmt };
     }
     case "while": {
-      const whilestmt = tcCondBody(s.whilestmt, functions, variables, currentReturn);
+      const whilestmt = tcCondBody(s.whilestmt, functions, variables, currentReturn, global);
       return { ...s, whilestmt };
     }
   }
   return s;
 }
 
-export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv, variables: BodyEnv, currentReturn: Type): CondBody<Type> {
+export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv, 
+  variables: BodyEnv, currentReturn: Type, global: BodyEnv): CondBody<Type> {
   const newCond = tcExpr(condbody.cond, functions, variables);
-  const newBody = condbody.body.map(bs => tcStmt(bs, functions, variables, currentReturn));
+  const newBody = condbody.body.map(bs => tcStmt(bs, functions, variables, currentReturn, global));
   return { cond: newCond, body: newBody };
 }
 
-export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, variables: BodyEnv, currentReturn: Type) {
+export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, global: BodyEnv, currentReturn: Type) {
   // const bodyvars = new Map<string, Type>(variables.entries());
   let bodyvars = new Map<string, Type>();
   f.params.forEach(p => { bodyvars.set(p.name, p.typ) });
-  const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars));
-  variables.forEach((v, k) => {
-    if (!bodyvars.has(k))
-      bodyvars.set(k, v)
-  });
-  const newStmts = f.body.stmts.map(bs => tcStmt(bs, functions, bodyvars, f.ret));
+  const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars, global));
+  // this is for adding the global variable
+  // if we allow nested functions 
+  // we will need to add an new scope of global env for the inside function
+  // with new globel env = global + body vars(?)
+  // decision making: if inside function could use the outside variables
+  // variables.forEach((v, k) => {
+  //   if (!bodyvars.has(k))
+  //     bodyvars.set(k, v)
+  // });
+  const newStmts = f.body.stmts.map(bs => tcStmt(bs, functions, bodyvars, f.ret, global));
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
 }
 
@@ -184,7 +194,8 @@ export function tcLit(lit: Literal<any>, functions: FunctionsEnv, local: BodyEnv
   }
 }
 
-export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv): VarDef<Type> {
+export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, 
+  local: BodyEnv, global: BodyEnv = new Map<string, Type>()): VarDef<Type> {
   const rhs = tcLit(s.init, functions, local);
   if (local.has(s.typedvar.name)) {
     throw new Error(`Duplicate declaration of identifier in the same scope: ${s.typedvar.name}`);
@@ -205,10 +216,10 @@ export function tcProgram(p: Program<any>): Program<Type> {
 
   const globals = new Map<string, Type>();
   const vardefs = p.vardefs.map(s => tcVarDef(s, functions, globals));
-  const fundefs = p.fundefs.map(s => tcFunc(s, functions, globals, "none"));
+  const fundefs = p.fundefs.map(s => tcFunc(s, functions, globals, "none", ));
 
   const stmts = p.stmts.map(s => {
-    const res = tcStmt(s, functions, globals, "none");
+    const res = tcStmt(s, functions, globals, "none", new Map<string, Type>());
     return res;
   });
   return { vardefs, fundefs, stmts };
