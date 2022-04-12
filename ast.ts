@@ -10,6 +10,9 @@ export type FunDef<A> =
 export type FuncBody<A> = 
   { vardefs: VarDef<A>[],  stmts: Stmt<A>[] }
 
+export type TypedVar =
+  | { name: string, typ: Type }
+
 export type Type =
   | "int"
   | "bool"
@@ -20,8 +23,6 @@ export type Literal<A> =
   | { a?: A, tag: "bool", value: boolean }
   | { a?: A, tag: "none" }
 
-export type TypedVar =
-  | { name: string, typ: Type }
 
 export type CondBody<A> = 
   { cond: Expr<A>, body: Stmt<A>[]}

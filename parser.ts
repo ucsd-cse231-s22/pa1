@@ -52,61 +52,62 @@ export function traverseProgram(t: TreeCursor, s: string,
 
 export function traverseDefs(t: TreeCursor, s: string,
   vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = []): boolean {
-  if (t.type.name === "AssignStatement") {
-    t.firstChild(); // focused on name (the first child)
-    var name = s.substring(t.from, t.to);
-    t.nextSibling(); // could be = sign or Typedef
-    var typ: Type = undefined;
-    var maybeTD = t;
-    if (maybeTD.type.name !== "TypeDef") {
-      t.parent()
-      return false;
-    }
-    t.firstChild(); // focus on :
-    t.nextSibling(); // focus on type
-    typ = traverseType(t, s);
-    t.parent();
-    t.nextSibling(); // focus on = sign
-    t.nextSibling(); // focused on the literal expression
-    var init = traverseLit(t, s);
-    t.parent();
-    vardefs.push({
-      typedvar: { name, typ },
-      init
-    });
-    return true;
-  }
-  else if (t.type.name === "FunctionDefinition") {
-    t.firstChild();  // Focus on def
-    t.nextSibling(); // Focus on name of function
-    var name = s.substring(t.from, t.to);
-    t.nextSibling(); // Focus on ParamList
-    var params = traverseParameters(t, s);
-    t.nextSibling(); // Focus on Body or TypeDef
-    var ret: Type = "none";
-    var maybeTD = t;
-    if (maybeTD.type.name === "TypeDef") {
-      t.firstChild();
-      ret = traverseType(t, s);
+  switch (t.type.name) {
+    case "AssignStatement":
+      t.firstChild(); // focused on name (the first child)
+      var name = s.substring(t.from, t.to);
+      t.nextSibling(); // could be = sign or Typedef
+      var typ: Type = undefined;
+      var maybeTD = t;
+      if (maybeTD.type.name !== "TypeDef") {
+        t.parent()
+        return false;
+      }
+      t.firstChild(); // focus on :
+      t.nextSibling(); // focus on type
+      typ = traverseType(t, s);
       t.parent();
-    }
-    t.nextSibling(); // Focus on Body
+      t.nextSibling(); // focus on = sign
+      t.nextSibling(); // focused on the literal expression
+      var init = traverseLit(t, s);
+      t.parent();
+      vardefs.push({
+        typedvar: { name, typ },
+        init
+      });
+      return true;
 
-    const localvar: VarDef<any>[] = [];
-    const localfun: FunDef<any>[] = [];
-    const body: Stmt<any>[] = [];
-    traverseProgram(t, s, localvar, localfun, body);
-    t.parent();      // Pop to Body !!
-    t.parent();      // Pop to FunctionDefinition
-    fundefs.push({
-      name, params, ret,
-      body: { vardefs: localvar, stmts: body }
-    });
-    return true;
+    case "FunctionDefinition":
+      t.firstChild();  // Focus on def
+      t.nextSibling(); // Focus on name of function
+      var name = s.substring(t.from, t.to);
+      t.nextSibling(); // Focus on ParamList
+      var params = traverseParameters(t, s);
+      t.nextSibling(); // Focus on Body or TypeDef
+      var ret: Type = "none";
+      var maybeTD = t;
+      if (maybeTD.type.name === "TypeDef") {
+        t.firstChild();
+        ret = traverseType(t, s);
+        t.parent();
+      }
+      t.nextSibling(); // Focus on Body
+
+      const localvar: VarDef<any>[] = [];
+      const localfun: FunDef<any>[] = [];
+      const body: Stmt<any>[] = [];
+      traverseProgram(t, s, localvar, localfun, body);
+      t.parent();      // Pop to Body !!
+      t.parent();      // Pop to FunctionDefinition
+      fundefs.push({
+        name, params, ret,
+        body: { vardefs: localvar, stmts: body }
+      });
+      return true;
+    default:
+      return false;
   }
-  return false;
 }
-
 
 export function traverseStmts(t: TreeCursor, s: string) {
   // The top node in the program is a Script node with a list of children
