@@ -92,9 +92,9 @@ export function traverseStmt(t: TreeCursor, s: string,
       t.parent();
       // return { tag: "assign", name, value, ret };
       if (typ === undefined)
-        return stmts.push({ tag: "assign", name, value });
+        stmts.push({ tag: "assign", name, value });
       else
-        return vardefs.push({
+        vardefs.push({
           typedvar: { name, typ },
           value
         });
@@ -111,7 +111,7 @@ export function traverseStmt(t: TreeCursor, s: string,
       t.nextSibling(); // Focus on name of function
       var name = s.substring(t.from, t.to);
       t.nextSibling(); // Focus on ParamList
-      var params = traverseParameters(t, s)
+      var params = traverseParameters(t, s);
       t.nextSibling(); // Focus on Body or TypeDef
       var ret: Type = "none";
       var maybeTD = t;
@@ -122,7 +122,7 @@ export function traverseStmt(t: TreeCursor, s: string,
       }
       t.nextSibling(); // Focus on single statement (for now)
       t.firstChild();  // Focus on :
-      const localvar: VarDef<any>[] = []
+      const localvar: VarDef<any>[] = [];
       const body: Stmt<any>[] = [];
       while (t.nextSibling()) {
         traverseStmt(t, s, body, localvar);
@@ -171,18 +171,18 @@ export function traverseType(t: TreeCursor, s: string): Type {
     case "VariableName":
       const name = s.substring(t.from, t.to);
       if (name !== "int" && name !== "bool" && name != "none") {
-        throw new Error("Unknown type: " + name)
+        throw new Error("Unknown type: " + name);
       }
       return name;
     default:
-      throw new Error("Unknown type: " + t.type.name)
+      throw new Error("Unknown type: " + t.type.name);
 
   }
 }
 
 export function traverseParameters(t: TreeCursor, s: string,): TypedVar[] {
   t.firstChild();  // Focuses on open paren
-  const parameters = []
+  const parameters = [];
   t.nextSibling(); // Focuses on a VariableName
   while (t.type.name !== ")") {
     let name = s.substring(t.from, t.to);
@@ -260,7 +260,8 @@ export function traverseExpr(t: TreeCursor, s: string): Expr<any> {
       t.parent();
       return insideExpr;
     default:
-      throw new ParseError("Could not parse expr at " + t.from + " " + t.to + ": " + s.substring(t.from, t.to));
+      throw new ParseError("Could not parse expr at " +
+        t.from + " " + t.to + ": " + s.substring(t.from, t.to));
   }
 }
 

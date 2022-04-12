@@ -33,7 +33,7 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
           }
           else {
             throw new TypeError(`Cannot apply operator '${e.op}' on
-            types '${nLHS.a}' and '${nRHS.a}'`)
+            types '${nLHS.a}' and '${nRHS.a}'`);
           }
         case ">":
         case "<":
@@ -44,7 +44,7 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
           }
           else {
             throw new TypeError(`Cannot apply operator '${e.op}' on
-            types '${nLHS.a}' and '${nRHS.a}'`)
+            types '${nLHS.a}' and '${nRHS.a}'`);
           }
         case "==":
         case "!=":
@@ -52,15 +52,16 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
             return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' \
+            on types '${nLHS.a}' and '${nRHS.a}'`);
           }
         // case "and": return { ...e, a: "bool" };
         // case "or": return { ...e, a: "bool" };
         case "is":
           // TODO: "is" operation is not complete yet
           if (nRHS.a != "none" || nLHS.a != "none") {
-            throw new TypeError(`Cannot apply operator '${e.op}' on
-              types '${nLHS.a}' and '${nRHS.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on \
+            types '${nLHS.a}' and '${nRHS.a}'`)
           }
           return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
         // default: throw new Error(`Unhandled op ${e.op}`);
@@ -73,24 +74,24 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
           if (nExpr.a === "int")
             return { ...e, a: "int", expr: nExpr };
           else
-            throw new TypeError(`Cannot apply operator '${e.op}' on
-              types '${nExpr.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on \
+            types '${nExpr.a}'`)
         case "not":
           if (nExpr.a === "bool")
             return { ...e, a: "bool", expr: nExpr };
           else
-            throw new TypeError(`Cannot apply operator '${e.op}' on
-              types '${nExpr.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on \
+            types '${nExpr.a}'`)
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
     case "id": return { ...e, a: variables.get(e.name) };
     case "call":
       if (e.name === "print") {
-        if (e.args.length !== 1) { throw new Error("print expects a single argument"); }
+        if (e.args.length !== 1)
+          throw new Error("print expects a single argument");
         const newArgs = [tcExpr(e.args[0], functions, variables)];
-        const res: Expr<Type> = { ...e, a: "none", args: newArgs };
-        return res;
+        return { ...e, a: "none", args: newArgs };
       }
       if (!functions.has(e.name)) {
         throw new Error(`Not a function or class: ${e.name}`);
@@ -167,7 +168,7 @@ export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, variables: BodyE
   // const bodyvars = new Map<string, Type>(variables.entries());
   let bodyvars = new Map<string, Type>();
   f.params.forEach(p => { bodyvars.set(p.name, p.typ) });
-  const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars))
+  const newvardefs = f.body.vardefs.map(v => tcVarDef(v, functions, bodyvars));
   variables.forEach((v, k) => {
     if (!bodyvars.has(k))
       bodyvars.set(k, v)

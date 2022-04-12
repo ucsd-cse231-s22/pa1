@@ -66,8 +66,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
       else {
         return [`(i32.const 0)`];  // none
       }
-    // case "true": return [`(i32.const 1)`];
-    // case "false": 
     case "id":
       // Since we type-checked for making sure all variable exist, here we
       // just check if it's a local variable and assume it is global if not
@@ -129,10 +127,6 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env): Array<string> {
       return valStmts;
     case "assign":
       var valStmts: Array<string> = [];
-      // if (stmt?.ret) { // declare
-      //   locals.set(stmt.name, true);
-      //   valStmts.push(`(local $${stmt.name} i32)`);
-      // }
       valStmts = valStmts.concat(codeGenExpr(stmt.value, locals));
       if (locals.has(stmt.name)) { valStmts.push(`(local.set $${stmt.name})`); }
       else { valStmts.push(`(global.set $${stmt.name})`); }
@@ -158,10 +152,10 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env): Array<string> {
           (if
             (then
               ${body}
-              br 1
+              (br 1)
             )
             (else
-              br 2
+              (br 2)
             )
           )
         )

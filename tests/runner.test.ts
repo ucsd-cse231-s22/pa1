@@ -294,13 +294,14 @@ describe('test functions', () => {
             x: int = 1
             def f(x: int) -> int:
                 y:int = 2
+                y = x + y + 1
                 x = x + 1
-                return x + y
+                return x * y
             print(f(x))
             print(x)
         `
         await runTest(source);
-        expect(importObject.output).to.equal("4\n1\n");
+        expect(importObject.output).to.equal("8\n1\n");
     });
 
     it('function error', async () => {
