@@ -105,9 +105,8 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
         if (a !== argtyp.a) {
           throw new TypeError(`Expected ${a}; got type ${argtyp} in parameter ${i + 1}`);
         }
-        return argtyp
+        return argtyp;
       });
-
       return { ...e, a: ret, args: newArgs };
   }
 }
