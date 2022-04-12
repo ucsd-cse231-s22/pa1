@@ -32,8 +32,7 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
             return { ...e, a: "int", lhs: nLHS, rhs: nRHS };
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' on
-            types '${nLHS.a}' and '${nRHS.a}'`);
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`);
           }
         case ">":
         case "<":
@@ -43,8 +42,7 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
             return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' on
-            types '${nLHS.a}' and '${nRHS.a}'`);
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`);
           }
         case "==":
         case "!=":
@@ -52,16 +50,14 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
             return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' \
-            on types '${nLHS.a}' and '${nRHS.a}'`);
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`);
           }
         // case "and": return { ...e, a: "bool" };
         // case "or": return { ...e, a: "bool" };
         case "is":
           // TODO: "is" operation is not complete yet
           if (nRHS.a != "none" || nLHS.a != "none") {
-            throw new TypeError(`Cannot apply operator '${e.op}' on \
-            types '${nLHS.a}' and '${nRHS.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`)
           }
           return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
         // default: throw new Error(`Unhandled op ${e.op}`);
@@ -74,14 +70,12 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
           if (nExpr.a === "int")
             return { ...e, a: "int", expr: nExpr };
           else
-            throw new TypeError(`Cannot apply operator '${e.op}' on \
-            types '${nExpr.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on type '${nExpr.a}'`)
         case "not":
           if (nExpr.a === "bool")
             return { ...e, a: "bool", expr: nExpr };
           else
-            throw new TypeError(`Cannot apply operator '${e.op}' on \
-            types '${nExpr.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on type '${nExpr.a}'`)
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
