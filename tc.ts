@@ -79,7 +79,7 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
-    case "id": 
+    case "id":
       if (!variables.get(e.name))
         throw new Error(`Not a variable: ${e.name}`);
       return { ...e, a: variables.get(e.name) };
@@ -177,11 +177,11 @@ export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, variables: BodyE
 export function tcLit(lit: Literal<any>, functions: FunctionsEnv, local: BodyEnv): Literal<Type> {
   switch (lit.tag) {
     case "number":
-      return { ...lit, a: "int"};
+      return { ...lit, a: "int" };
     case "bool":
-      return { ...lit, a: "bool"};
+      return { ...lit, a: "bool" };
     case "none":
-      return { ...lit, a: "none"};
+      return { ...lit, a: "none" };
   }
 }
 

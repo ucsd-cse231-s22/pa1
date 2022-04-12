@@ -12,8 +12,8 @@ export function parseProgram(source: string): Program<any> {
   return { vardefs, fundefs, stmts }
 }
 
-export function traverseProgram(t: TreeCursor, s: string, 
-  vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = [], 
+export function traverseProgram(t: TreeCursor, s: string,
+  vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = [],
   stmts: Stmt<any>[] = []) {
   // The top node in the program is a Script node with a list of children
   // that are various statements
@@ -29,10 +29,10 @@ export function traverseProgram(t: TreeCursor, s: string,
         traverseStmt(t, s, stmts);
       } while (t.nextSibling());
       break
-      // t.nextSibling() returns false when it reaches
-      //  the end of the list of children
-      // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
-      // return { vardefs, fundefs, stmts };
+    // t.nextSibling() returns false when it reaches
+    //  the end of the list of children
+    // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
+    // return { vardefs, fundefs, stmts };
     case "Body":  // function body
       t.firstChild(); //focus on semicolon
       if (!t.nextSibling()) //in case of empty program
@@ -50,7 +50,7 @@ export function traverseProgram(t: TreeCursor, s: string,
   }
 }
 
-export function traverseDefs(t: TreeCursor, s: string, 
+export function traverseDefs(t: TreeCursor, s: string,
   vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = []): boolean {
   if (t.type.name === "AssignStatement") {
     t.firstChild(); // focused on name (the first child)
@@ -91,7 +91,7 @@ export function traverseDefs(t: TreeCursor, s: string,
       t.parent();
     }
     t.nextSibling(); // Focus on Body
-    
+
     const localvar: VarDef<any>[] = [];
     const localfun: FunDef<any>[] = [];
     const body: Stmt<any>[] = [];
