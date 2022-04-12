@@ -34,7 +34,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const wat = compile(program);
       const code = document.getElementById("generated-code");
       code.textContent = wat;
-      const result = await run(wat, importObject);
+      let result = await run(wat, importObject);
+      if (result === undefined)
+        result = "";
       output.textContent += String(result);
       output.setAttribute("style", "color: black");
     }

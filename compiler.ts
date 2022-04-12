@@ -26,7 +26,7 @@ function varsFunsStmts(p: Program<Type>): [string[], FunDef<Type>[], Stmt<Type>[
   return [variableNames(p.vardefs), p.fundefs, p.stmts];
 }
 
-export async function run(watSource: string, config: any): Promise<number> {
+export async function run(watSource: string, config: any): Promise<any> {
   const wabtApi = await wabt();
 
   const parsed = wabtApi.parseWat("example", watSource);
