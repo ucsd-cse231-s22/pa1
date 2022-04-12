@@ -104,13 +104,13 @@ describe('test operations', () => {
 
     it('unary operation', async () => {
         await runTest(`
+            y:int = 0\nx:int=1\ny=-5\nx=-y\nprint(x)\nprint(-(-x))
             print(-2)
             print(-(-4))
             print(not True)
             print(not False)
-            y:int = 0\ny=-5\nx:int=1\nx=-y\nprint(x)\nprint(-(-x))
         `);
-        expect(importObject.output).to.equal("-2\n4\nFalse\nTrue\n5\n5\n");
+        expect(importObject.output).to.equal("5\n5\n-2\n4\nFalse\nTrue\n");
     });
 
     it('operation error', async () => {

@@ -5,27 +5,106 @@ import { ParseError } from './error';
 
 export function parseProgram(source: string): Program<any> {
   const t = parser.parse(source).cursor();
-  return traverseProgram(t, source);
+  var vardefs: VarDef<any>[] = [];
+  var fundefs: FunDef<any>[] = [];
+  var stmts: Stmt<any>[] = [];
+  traverseProgram(t, source, vardefs, fundefs, stmts);
+  return { vardefs, fundefs, stmts }
 }
 
-export function traverseProgram(t: TreeCursor, s: string) {
+export function traverseProgram(t: TreeCursor, s: string, 
+  vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = [], 
+  stmts: Stmt<any>[] = []) {
   // The top node in the program is a Script node with a list of children
   // that are various statements
   switch (t.node.type.name) {
     case "Script":
-      var vardefs: VarDef<any>[] = [];
-      var fundefs: FunDef<any>[] = [];
-      var stmts: Stmt<any>[] = [];
-      t.firstChild();
+      if (!t.firstChild()) //in case of empty program
+        return
+      while (traverseDefs(t, s, vardefs, fundefs)) {
+        if (!t.nextSibling())
+          return
+      }
       do {
-        traverseStmt(t, s, stmts, vardefs, fundefs);
-      } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
+        traverseStmt(t, s, stmts);
+      } while (t.nextSibling());
+      break
+      // t.nextSibling() returns false when it reaches
       //  the end of the list of children
       // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
-      return { vardefs, fundefs, stmts };
+      // return { vardefs, fundefs, stmts };
+    case "Body":  // function body
+      t.firstChild(); //focus on semicolon
+      if (!t.nextSibling()) //in case of empty program
+        return
+      while (traverseDefs(t, s, vardefs, fundefs)) {
+        if (!t.nextSibling())
+          return
+      }
+      do {
+        traverseStmt(t, s, stmts);
+      } while (t.nextSibling());
+      break
     default:
       throw new ParseError("Could not parse program at " + t.node.from + " " + t.node.to);
   }
+}
+
+export function traverseDefs(t: TreeCursor, s: string, 
+  vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = []): boolean {
+  if (t.type.name === "AssignStatement") {
+    t.firstChild(); // focused on name (the first child)
+    var name = s.substring(t.from, t.to);
+    t.nextSibling(); // could be = sign or Typedef
+    var typ: Type = undefined;
+    var maybeTD = t;
+    if (maybeTD.type.name !== "TypeDef") {
+      t.parent()
+      return false;
+    }
+    t.firstChild(); // focus on :
+    t.nextSibling(); // focus on type
+    typ = traverseType(t, s);
+    t.parent();
+    t.nextSibling(); // focus on = sign
+    t.nextSibling(); // focused on the literal expression
+    var init = traverseLit(t, s);
+    t.parent();
+    vardefs.push({
+      typedvar: { name, typ },
+      init
+    });
+    return true;
+  }
+  else if (t.type.name === "FunctionDefinition") {
+    t.firstChild();  // Focus on def
+    t.nextSibling(); // Focus on name of function
+    var name = s.substring(t.from, t.to);
+    t.nextSibling(); // Focus on ParamList
+    var params = traverseParameters(t, s);
+    t.nextSibling(); // Focus on Body or TypeDef
+    var ret: Type = "none";
+    var maybeTD = t;
+    if (maybeTD.type.name === "TypeDef") {
+      t.firstChild();
+      ret = traverseType(t, s);
+      t.parent();
+    }
+    t.nextSibling(); // Focus on Body
+    
+    const localvar: VarDef<any>[] = [];
+    const localfun: FunDef<any>[] = [];
+    const body: Stmt<any>[] = [];
+    traverseProgram(t, s, localvar, localfun, body);
+    t.parent();      // Pop to Body !!
+    t.parent();      // Pop to FunctionDefinition
+    fundefs.push({
+      name, params, ret,
+      body: { vardefs: localvar, stmts: body }
+    });
+    return true;
+  }
+  return false;
 }
 
 
@@ -54,9 +133,7 @@ export function traverseStmts(t: TreeCursor, s: string) {
   Invariant – t must focus on the same node at the end of the traversal
 */
 export function traverseStmt(t: TreeCursor, s: string,
-  stmts: Stmt<any>[] = [], vardefs: VarDef<any>[] = [],
-  fundefs: FunDef<any>[] = [],
-) {
+  stmts: Stmt<any>[] = []) {
   switch (t.type.name) {
     case "ReturnStatement":
       t.firstChild();  // Focus return keyword
@@ -72,36 +149,13 @@ export function traverseStmt(t: TreeCursor, s: string,
       break;
     case "AssignStatement":
       // assign: x = 1
-      // declare: x:int = 1
       t.firstChild(); // focused on name (the first child)
       var name = s.substring(t.from, t.to);
-      t.nextSibling(); // could be = sign or Typedef
-      var typ: Type = undefined;
-      var maybeTD = t;
-      if (maybeTD.type.name === "TypeDef") {
-        t.firstChild(); // focus on :
-        t.nextSibling(); // focus on type
-        typ = traverseType(t, s);
-        t.parent();
-        t.nextSibling(); // focus on = sign
-        t.nextSibling(); // focused on the literal expression
-        var init = traverseLit(t, s);
-      }
-      else{
-        t.nextSibling();
-        // focused on = sign. May need this for complex tasks, like +=!
-        t.nextSibling(); // focused on the value expression
-        var value = traverseExpr(t, s);
-      }
+      t.nextSibling(); // focused on = sign. May need this for complex tasks, like +=!
+      t.nextSibling(); // focused on the value expression
+      var value = traverseExpr(t, s);
       t.parent();
-      // return { tag: "assign", name, value, ret };
-      if (typ === undefined)
-        stmts.push({ tag: "assign", name, value });
-      else
-        vardefs.push({
-          typedvar: { name, typ },
-          init
-        });
+      stmts.push({ tag: "assign", name, value });
       break;
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
@@ -109,34 +163,6 @@ export function traverseStmt(t: TreeCursor, s: string,
       var expr = traverseExpr(t, s);
       t.parent();
       stmts.push({ tag: "expr", expr: expr });
-      break;
-    case "FunctionDefinition":
-      t.firstChild();  // Focus on def
-      t.nextSibling(); // Focus on name of function
-      var name = s.substring(t.from, t.to);
-      t.nextSibling(); // Focus on ParamList
-      var params = traverseParameters(t, s);
-      t.nextSibling(); // Focus on Body or TypeDef
-      var ret: Type = "none";
-      var maybeTD = t;
-      if (maybeTD.type.name === "TypeDef") {
-        t.firstChild();
-        ret = traverseType(t, s);
-        t.parent();
-      }
-      t.nextSibling(); // Focus on single statement (for now)
-      t.firstChild();  // Focus on :
-      const localvar: VarDef<any>[] = [];
-      const body: Stmt<any>[] = [];
-      while (t.nextSibling()) {
-        traverseStmt(t, s, body, localvar);
-      }
-      t.parent();      // Pop to Body
-      t.parent();      // Pop to FunctionDefinition
-      fundefs.push({
-        name, params, ret,
-        body: { vardefs: localvar, stmts: body }
-      });
       break;
     case "PassStatement":
       stmts.push({ tag: "pass" }); break;
