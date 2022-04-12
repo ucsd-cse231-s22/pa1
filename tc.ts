@@ -79,7 +79,10 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
-    case "id": return { ...e, a: variables.get(e.name) };
+    case "id": 
+      if (!variables.get(e.name))
+        throw new Error(`Not a variable: ${e.name}`);
+      return { ...e, a: variables.get(e.name) };
     case "call":
       if (e.name === "print") {
         if (e.args.length !== 1)
@@ -171,8 +174,19 @@ export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, variables: BodyE
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
 }
 
+export function tcLit(lit: Literal<any>, functions: FunctionsEnv, local: BodyEnv): Literal<Type> {
+  switch (lit.tag) {
+    case "number":
+      return { ...lit, a: "int"};
+    case "bool":
+      return { ...lit, a: "bool"};
+    case "none":
+      return { ...lit, a: "none"};
+  }
+}
+
 export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv): VarDef<Type> {
-  const rhs = tcExpr(s.value, functions, local);
+  const rhs = tcLit(s.init, functions, local);
   if (local.has(s.typedvar.name)) {
     throw new Error(`Duplicate declaration of identifier in the same scope: ${s.typedvar.name}`);
   }
@@ -181,7 +195,7 @@ export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, local: BodyEnv
   if (local.get(s.typedvar.name) !== rhs.a) {
     throw new TypeError(`Expect type '${local.get(s.typedvar.name)}'; got type '${rhs.a}'`);
   }
-  return { ...s, value: rhs };
+  return { ...s, init: rhs };
 }
 
 export function tcProgram(p: Program<any>): Program<Type> {

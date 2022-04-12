@@ -63,7 +63,7 @@ describe('run(source, config) function', () => {
     });
 
     it('expression', async () => {
-        await runTest("x:int = (2 + 3) * (5 + 10 // 4)\nprint(x)");
+        await runTest("x:int = 0\nx=(2 + 3) * (5 + 10 // 4)\nprint(x)");
         expect(importObject.output).to.equal("35\n");
     });
 });
@@ -108,7 +108,7 @@ describe('test operations', () => {
             print(-(-4))
             print(not True)
             print(not False)
-            y:int = -5\nx:int=-y\nprint(x)\nprint(-(-x))
+            y:int = 0\ny=-5\nx:int=1\nx=-y\nprint(x)\nprint(-(-x))
         `);
         expect(importObject.output).to.equal("-2\n4\nFalse\nTrue\n5\n5\n");
     });
@@ -215,10 +215,12 @@ describe('test functions', () => {
         await runTest(`
             x:int = 10
             def fun(x:int)->int:
-                y:int = x
+                y:int = 0
+                y = x
                 x = 1
                 return x
-            z:int = fun(x)
+            z:int = 0
+            z = fun(x)
             print(z)
         `);
         expect(importObject.output).to.equal("1\n");
@@ -302,6 +304,22 @@ describe('test functions', () => {
         `
         await runTest(source);
         expect(importObject.output).to.equal("8\n1\n");
+    });
+
+    it('function test', async () => {
+        const source = `
+            def f(x:int)->int:
+            return x * x
+
+            a:int = 1
+            res:int = 0
+            while a <= 10:
+                res = res + f(a)
+                a = a + 1
+            print(res)
+        `
+        await runTest(source);
+        expect(importObject.output).to.equal("385\n");
     });
 
     it('function error', async () => {

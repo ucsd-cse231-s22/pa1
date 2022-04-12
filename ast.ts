@@ -2,7 +2,7 @@ export type Program<A> =
   { vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
 
 export type VarDef<A> =
-  { typedvar: TypedVar, value: Expr<A> };
+  { typedvar: TypedVar, init: Literal<A> };
 
 export type FunDef<A> = 
   { name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A> }
@@ -15,10 +15,10 @@ export type Type =
   | "bool"
   | "none"
 
-export type Literal = 
-  | { tag: "number", value: number }
-  | { tag: "bool", value: boolean }
-  | { tag: "none" }
+export type Literal<A> = 
+  | { a?: A, tag: "number", value: number }
+  | { a?: A, tag: "bool", value: boolean }
+  | { a?: A, tag: "none" }
 
 export type TypedVar =
   | { name: string, typ: Type }
@@ -35,7 +35,7 @@ export type Stmt<A> =
   | { a?: A, tag: "while", whilestmt: CondBody<A> }
 
 export type Expr<A> = 
-  | { a?: A, tag: "literal", value: Literal }
+  | { a?: A, tag: "literal", value: Literal<A> }
   | { a?: A, tag: "binop", op: BinOp, lhs: Expr<A>, rhs: Expr<A> }
   | { a?: A, tag: "unop", op: UnOp, expr: Expr<A> }
   | { a?: A, tag: "id", name: string, global?: boolean }

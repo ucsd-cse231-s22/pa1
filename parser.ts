@@ -1,6 +1,6 @@
 import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
-import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, FunDef, Program } from './ast';
+import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, FunDef, Program, Literal } from './ast';
 import { ParseError } from './error';
 
 export function parseProgram(source: string): Program<any> {
@@ -84,11 +84,15 @@ export function traverseStmt(t: TreeCursor, s: string,
         typ = traverseType(t, s);
         t.parent();
         t.nextSibling(); // focus on = sign
+        t.nextSibling(); // focused on the literal expression
+        var init = traverseLit(t, s);
       }
-      // focused on = sign. May need this for complex tasks, like +=!
-      t.nextSibling(); // focused on the value expression
-
-      var value = traverseExpr(t, s);
+      else{
+        t.nextSibling();
+        // focused on = sign. May need this for complex tasks, like +=!
+        t.nextSibling(); // focused on the value expression
+        var value = traverseExpr(t, s);
+      }
       t.parent();
       // return { tag: "assign", name, value, ret };
       if (typ === undefined)
@@ -96,7 +100,7 @@ export function traverseStmt(t: TreeCursor, s: string,
       else
         vardefs.push({
           typedvar: { name, typ },
-          value
+          init
         });
       break;
     case "ExpressionStatement":
@@ -166,6 +170,7 @@ export function traverseStmt(t: TreeCursor, s: string,
   }
 }
 
+
 export function traverseType(t: TreeCursor, s: string): Type {
   switch (t.type.name) {
     case "VariableName":
@@ -203,20 +208,28 @@ export function traverseParameters(t: TreeCursor, s: string,): TypedVar[] {
   return parameters;
 }
 
-export function traverseExpr(t: TreeCursor, s: string): Expr<any> {
+export function traverseLit(t: TreeCursor, s: string): Literal<any> {
   switch (t.type.name) {
     case "Boolean":
       if (s.substring(t.from, t.to) === "True")
-        return { tag: "literal", value: { tag: "bool", value: true } };
+        return { tag: "bool", value: true };
       else
-        return { tag: "literal", value: { tag: "bool", value: false } };
+        return { tag: "bool", value: false };
     case "Number":
-      return {
-        tag: "literal",
-        value: { tag: "number", value: Number(s.substring(t.from, t.to)) }
-      };
+      return { tag: "number", value: Number(s.substring(t.from, t.to)) };
     case "None":
-      return { tag: "literal", value: { tag: "none" } };
+      return { tag: "none" };
+    default:
+      throw new ParseError(`Not a literal: ${t.type.name}`);
+  }
+}
+
+export function traverseExpr(t: TreeCursor, s: string): Expr<any> {
+  switch (t.type.name) {
+    case "Boolean":
+    case "Number":
+    case "None":
+      return { tag: "literal", value: traverseLit(t, s) };
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
     case "CallExpression":

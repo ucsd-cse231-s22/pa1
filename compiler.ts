@@ -52,20 +52,24 @@ export function opStmts(op: BinOp) {
   }
 }
 
+export function codeGenLit(lit: Literal<Type>): Array<string> {
+  if (lit.tag === "number")
+    return [`(i32.const ${lit.value})`];
+  else if (lit.tag === "bool") {
+    if (lit.value)
+      return [`(i32.const 1)`];
+    else
+      return [`(i32.const 0)`];
+  }
+  else {
+    return [`(i32.const 0)`];  // none
+  }
+}
+
 export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
   switch (expr.tag) {
     case "literal":
-      if (expr.value.tag === "number")
-        return [`(i32.const ${expr.value.value})`];
-      else if (expr.value.tag === "bool") {
-        if (expr.value.value)
-          return [`(i32.const 1)`];
-        else
-          return [`(i32.const 0)`];
-      }
-      else {
-        return [`(i32.const 0)`];  // none
-      }
+      return codeGenLit(expr.value);
     case "id":
       // Since we type-checked for making sure all variable exist, here we
       // just check if it's a local variable and assume it is global if not
@@ -187,7 +191,7 @@ export function codeGenFun(f: FunDef<Type>, locals: Env): Array<string> {
 }
 
 export function codeGenVars(v: VarDef<Type>, locals: Env): string {
-  var valStmts: Array<string> = codeGenExpr(v.value, locals).flat();
+  var valStmts: Array<string> = codeGenLit(v.init).flat();
   // valStmts = valStmts.concat();
   if (locals.has(v.typedvar.name)) {
     valStmts.push(`(local.set $${v.typedvar.name})`);
