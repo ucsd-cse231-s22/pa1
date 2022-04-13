@@ -294,10 +294,14 @@ export function traverseExpr(t: TreeCursor, s: string): Expr<any> {
       t.parent();
       return { tag: "unop", op: uop, expr: uarg };
     case "ParenthesizedExpression":
-      t.firstChild();
+      t.firstChild(); //focus on (
       t.nextSibling();
-      var insideExpr = traverseExpr(t, s);
-      t.parent();
+      const insideExpr = traverseExpr(t, s);
+      t.nextSibling();
+      const maybeParen = t;
+      if (maybeParen.type.name !== ")")
+        throw new ParseError("Could not parse expr at " +
+          t.from + " " + t.to + ": " + s.substring(t.from, t.to));
       return insideExpr;
     default:
       throw new ParseError("Could not parse expr at " +
