@@ -110,12 +110,12 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
 
 
 export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, indent: number, tag = "if"): Array<string> {
-  const cond = codeGenExpr(condbody.cond, locals).map(s=>addIndent(s, indent));
+  const cond = codeGenExpr(condbody.cond, locals).map(s => addIndent(s, indent));
   const body = condbody.body.map(s => codeGenStmt(s, locals, indent + 2)).flat();
 
   // let stmt = cond.concat([`(if`, `(then`, ...body]);
   let stmt = [...cond,
-    addIndent(`(if`, indent), 
+    addIndent(`(if`, indent),
     addIndent(`(then`, indent + 1),
     ...body,
   ]
@@ -162,12 +162,12 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, indent: number): Arra
       const elifcondbody = stmt.elifstmt.map(p => codeGenCondBody(p, locals, indent + 2, "elif")).flat();
       const elsestmt = stmt.elsestmt.map(p => codeGenStmt(p, locals, indent + 2)).flat();
       // console.log([...ifcondbody, `(else`, ...elifcondbody, ...elsestmt, `br 0`, `)`]);
-      return [...ifcondbody, 
-        addIndent(`(else`, indent + 1), 
-        ...elifcondbody, 
-        ...elsestmt, 
-        addIndent(`(br 0)`, indent + 2), 
-        addIndent(`)`, indent + 1), 
+      return [...ifcondbody,
+        addIndent(`(else`, indent + 1),
+        ...elifcondbody,
+        ...elsestmt,
+        addIndent(`(br 0)`, indent + 2),
+        addIndent(`)`, indent + 1),
         addIndent(`)`, indent)
       ];
     case "while":
@@ -175,7 +175,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, indent: number): Arra
       // let cond = codeGenExpr(stmt.whilestmt.cond, locals, indent + 2);
       // const body = stmt.whilestmt.body.map(s => codeGenStmt(s, locals, indent + 4)).flat();
       return [addIndent(`(block`, indent),
-        addIndent(`(loop`, indent + 1), 
+        addIndent(`(loop`, indent + 1),
         // ...cond, 
         // addIndent(`(if`, indent + 2),
         // addIndent(`(then`, indent + 3),
@@ -203,12 +203,12 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, indent: number): Array<
 
   const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables, indent + 1)).flat();
   const stmtsBody = stmts.join("\n");
-  return [`(func $${f.name} ${params} (result i32)`, 
-        addIndent(`(local $scratch i32)`, indent + 1),
-        varDecls,
-        varAssign,
-        stmtsBody,
-        addIndent(`(i32.const 0))`, indent + 1)];
+  return [`(func $${f.name} ${params} (result i32)`,
+  addIndent(`(local $scratch i32)`, indent + 1),
+  varDecls,
+  varAssign,
+  stmtsBody,
+  addIndent(`(i32.const 0))`, indent + 1)];
 }
 
 export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): string {
@@ -232,7 +232,7 @@ export function compile(source: string): string {
   const varDecls = vars.map(v => `(global $${v} (mut i32) (i32.const 0))`).join("\n");
   const varAssign = ast.vardefs.map(v => codeGenVars(v, emptyEnv, basicIndent + 1));
   const allStmts = stmts.map(s => codeGenStmt(s, emptyEnv, basicIndent + 1)).flat();
-  
+
   const main = [`(local $scratch i32)`, ...varAssign, ...allStmts].join("\n");
 
   const lastStmt = ast.stmts[ast.stmts.length - 1];

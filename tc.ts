@@ -111,7 +111,7 @@ export function tcExpr(e: Expr<any>, functions: FunctionsEnv, variables: BodyEnv
   }
 }
 
-export function tcStmt(s: Stmt<any>, functions: FunctionsEnv, 
+export function tcStmt(s: Stmt<any>, functions: FunctionsEnv,
   variables: BodyEnv, currentReturn: Type, global: BodyEnv): Stmt<Type> {
   switch (s.tag) {
     case "assign": {
@@ -120,10 +120,10 @@ export function tcStmt(s: Stmt<any>, functions: FunctionsEnv,
         variables.set(s.name, rhs.a);
       }
       if (!variables.has(s.name)) {
-          if (global.has(s.name)) 
-            throw new Error(`Cannot assign variable that is not explicitly declared in this scope: ${s.name}`);
-          else
-            throw new Error(`Not a variable: ${s.name}`);
+        if (global.has(s.name))
+          throw new Error(`Cannot assign variable that is not explicitly declared in this scope: ${s.name}`);
+        else
+          throw new Error(`Not a variable: ${s.name}`);
       }
       else if (variables.get(s.name) !== rhs.a) {
         throw new TypeError(`Expect type '${variables.get(s.name)}'; got type '${rhs.a}'`);
@@ -158,7 +158,7 @@ export function tcStmt(s: Stmt<any>, functions: FunctionsEnv,
   return s;
 }
 
-export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv, 
+export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv,
   variables: BodyEnv, currentReturn: Type, global: BodyEnv): CondBody<Type> {
   const newCond = tcExpr(condbody.cond, functions, variables);
   const newBody = condbody.body.map(bs => tcStmt(bs, functions, variables, currentReturn, global));
@@ -168,13 +168,12 @@ export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv,
 export function returnable(stmt: Stmt<Type>): boolean {
   if (stmt.tag === "return")
     return true;
-  else if (stmt.tag === "if")
-  {
+  else if (stmt.tag === "if") {
     if (stmt.elifstmt.length === 0)
       return false;
     let res = stmt.ifstmt.body.some(returnable)
       && stmt.elsestmt.some(returnable)
-      && stmt.elifstmt.map(condstmt => condstmt.body.some(returnable)).every(x=>x)
+      && stmt.elifstmt.map(condstmt => condstmt.body.some(returnable)).every(x => x)
     return res;
   }
   return false;
@@ -195,9 +194,8 @@ export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, global: BodyEnv)
   //     bodyvars.set(k, v)
   // });
   const newStmts = f.body.stmts.map(bs => tcStmt(bs, functions, bodyvars, f.ret, global));
-  if (f.ret !== "none" && !f.body.stmts.some(returnable))
-  {
-    throw new Error(`All path in this function/method ` + 
+  if (f.ret !== "none" && !f.body.stmts.some(returnable)) {
+    throw new Error(`All path in this function/method ` +
       `must have a return statement: ${f.name}`);
   }
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
@@ -214,7 +212,7 @@ export function tcLit(lit: Literal<any>, functions: FunctionsEnv, local: BodyEnv
   }
 }
 
-export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv, 
+export function tcVarDef(s: VarDef<any>, functions: FunctionsEnv,
   local: BodyEnv, global: BodyEnv = new Map<string, Type>()): VarDef<Type> {
   const rhs = tcLit(s.init, functions, local);
   if (local.has(s.typedvar.name)) {
