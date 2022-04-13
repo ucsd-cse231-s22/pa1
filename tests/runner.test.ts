@@ -167,7 +167,7 @@ describe('test control flow', () => {
             elif x < 10:
                 print(1)
             elif x > 30:
-                print(2)
+                pass
             else:
                 print(3)
         `);
@@ -199,6 +199,32 @@ describe('test control flow', () => {
             print(x)
         `);
         expect(importObject.output).to.equal("100\n");
+    });
+
+    it('return', async () => {
+        try {
+            await runTest(`
+                def f(x:int) -> bool:
+                  if x > 0:
+                    return True
+            `);
+        } catch (error) {
+            expect(error.message).to.equal("All path in this function/method " +
+                "must have a return statement: f");
+        }
+
+        try {
+            await runTest(`
+                def f(x:int) -> bool:
+                  while True:
+                    x = x + 1
+                    if x > 10:
+                        return True
+            `);
+        } catch (error) {
+            expect(error.message).to.equal("All path in this function/method " +
+                "must have a return statement: f");
+        }
     });
 
     // it('prints a unary operation 3', async () => {

@@ -165,7 +165,22 @@ export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv,
   return { cond: newCond, body: newBody };
 }
 
-export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, global: BodyEnv, currentReturn: Type) {
+export function returnable(stmt: Stmt<Type>): boolean {
+  if (stmt.tag === "return")
+    return true;
+  else if (stmt.tag === "if")
+  {
+    if (stmt.elifstmt.length === 0)
+      return false;
+    let res = stmt.ifstmt.body.some(returnable)
+      && stmt.elsestmt.some(returnable)
+      && stmt.elifstmt.map(condstmt => condstmt.body.some(returnable)).every(x=>x)
+    return res;
+  }
+  return false;
+}
+
+export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, global: BodyEnv) {
   // const bodyvars = new Map<string, Type>(variables.entries());
   let bodyvars = new Map<string, Type>();
   f.params.forEach(p => { bodyvars.set(p.name, p.typ) });
@@ -180,6 +195,11 @@ export function tcFunc(f: FunDef<any>, functions: FunctionsEnv, global: BodyEnv,
   //     bodyvars.set(k, v)
   // });
   const newStmts = f.body.stmts.map(bs => tcStmt(bs, functions, bodyvars, f.ret, global));
+  if (f.ret !== "none" && !f.body.stmts.some(returnable))
+  {
+    throw new Error(`All path in this function/method ` + 
+      `must have a return statement: ${f.name}`);
+  }
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
 }
 
@@ -216,7 +236,7 @@ export function tcProgram(p: Program<any>): Program<Type> {
 
   const globals = new Map<string, Type>();
   const vardefs = p.vardefs.map(s => tcVarDef(s, functions, globals));
-  const fundefs = p.fundefs.map(s => tcFunc(s, functions, globals, "none", ));
+  const fundefs = p.fundefs.map(s => tcFunc(s, functions, globals));
 
   const stmts = p.stmts.map(s => {
     const res = tcStmt(s, functions, globals, "none", new Map<string, Type>());
