@@ -118,6 +118,7 @@ describe('test operations', () => {
             await runTest(`
                 print(1+True)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.name).to.equal("TypeError");
         }
@@ -127,6 +128,7 @@ describe('test operations', () => {
                 x:int = 1
                 x = y
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal(`Expect type 'int'; got type 'bool'`);
         }
@@ -206,8 +208,9 @@ describe('test control flow', () => {
             await runTest(`
                 def f(x:int) -> bool:
                   if x > 0:
-                    return True
+                    return x
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal("All path in this function/method " +
                 "must have a return statement: f");
@@ -221,6 +224,7 @@ describe('test control flow', () => {
                     if x > 10:
                         return True
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal("All path in this function/method " +
                 "must have a return statement: f");
@@ -353,6 +357,7 @@ describe('test functions', () => {
                     y:bool = False
                     return y
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.name).to.equal("TypeError");
         }
@@ -363,6 +368,7 @@ describe('test functions', () => {
                     return x
                 f(y)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.name).to.equal("TypeError");
         }
@@ -373,6 +379,7 @@ describe('test functions', () => {
                     return x
                 f(y, y)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal(`Expected 1 arguments; got 2`);
         }
@@ -384,6 +391,7 @@ describe('test functions', () => {
                     return x == 1
                 y = f(1)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.name).to.equal(`TypeError`);
         }
@@ -400,6 +408,7 @@ describe('test functions', () => {
                 fun()
                 print(x)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal("Cannot assign variable " +
                 "that is not explicitly declared in this scope: x");
@@ -412,6 +421,7 @@ describe('test functions', () => {
                     return x
                 f(y)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.name).to.equal("TypeError");
         }
@@ -422,6 +432,7 @@ describe('test functions', () => {
                     return x
                 f(y, y)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal(`Expected 1 arguments; got 2`);
         }
@@ -433,6 +444,7 @@ describe('test functions', () => {
                     return x == 1
                 y = f(1)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.name).to.equal(`TypeError`);
         }
@@ -446,6 +458,7 @@ describe('test functions', () => {
                 x:int = 1
                 x:int = 2
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
         }
@@ -458,6 +471,7 @@ describe('test functions', () => {
                     return x
                 x = f(x)
             `);
+            expect(true).to.equal(false);
         } catch (error) {
             expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
         }
