@@ -210,6 +210,9 @@ export function tcCondBody(condbody: CondBody<any>, functions: FunctionsEnv,
   variables: BodyEnv, currentReturn: Type): CondBody<Type> {
   const newCond = tcExpr(condbody.cond, functions, variables);
   const newBody = condbody.body.map(bs => tcStmt(bs, functions, variables, currentReturn));
+  if (newCond.a !== "bool") {
+    throw new TypeError(`Condition expression cannot be of type '${newCond.a}'`);
+  }
   return { cond: newCond, body: newBody };
 }
 
