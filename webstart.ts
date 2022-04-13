@@ -6,6 +6,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const elt = document.createElement("pre");
     document.getElementById("output").appendChild(elt);
     elt.innerText = arg;
+    // const out = document.getElementById("output");
+    // out.innerText += arg + "\n";
   }
   var importObject = {
     imports: {
@@ -37,7 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       let result = await run(wat, importObject);
       if (result === undefined)
         result = "";
-      output.textContent += String(result);
+      // output.textContent += String(result);
       output.setAttribute("style", "color: black");
     }
     catch(e) {

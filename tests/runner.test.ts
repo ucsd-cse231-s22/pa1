@@ -211,7 +211,7 @@ describe('test control flow', () => {
 describe('test functions', () => {
     const config = { importObject };
 
-    it('function definition', async () => {
+    it('function definition 1', async () => {
         await runTest(`
             x:int = 10
             def fun(x:int)->int:
@@ -224,6 +224,29 @@ describe('test functions', () => {
             print(z)
         `);
         expect(importObject.output).to.equal("1\n");
+    });
+
+    it('function definition 2', async () => {
+        await runTest(`
+            def f():
+                pass
+            print(f())
+        `);
+        expect(importObject.output).to.equal("None\n");
+    });
+
+    it('function definition 3', async () => {
+        await runTest(`
+            x: int = 1
+            def f(x: int) -> int:
+                y:int = 2
+                y = x + y + 1
+                x = x + 1
+                return x * y
+            print(f(x))
+            print(x)
+        `);
+        expect(importObject.output).to.equal("8\n1\n");
     });
 
 
@@ -245,7 +268,7 @@ describe('test functions', () => {
         expect(importObject.output).to.equal("10\n10\n");
     });
 
-    it('function 1', async () => {
+    it('function test 1', async () => {
         await runTest(`
                 y:bool = False
                 def f(x:int)->bool:
@@ -256,7 +279,7 @@ describe('test functions', () => {
         expect(importObject.output).to.equal("True\n");
     });
 
-    it('function 2', async () => {
+    it('function test 2', async () => {
         await runTest(`
                 x:int = 4
                 y:int = 0
@@ -267,6 +290,22 @@ describe('test functions', () => {
         `);
         expect(importObject.output).to.equal("25\n");
     });
+
+    it('function test 3', async () => {
+        await runTest(`
+            def f(x:int)->int:
+                return x * x
+
+            a:int = 1
+            res:int = 0
+            while a <= 10:
+                res = res + f(a)
+                a = a + 1
+            print(res)
+        `);
+        expect(importObject.output).to.equal("385\n");
+    });
+
 
     it('none', async () => {
         await runTest(`
@@ -280,36 +319,6 @@ describe('test functions', () => {
         expect(importObject.output).to.equal("None\nNone\n");
     });
 
-    it('function test', async () => {
-        const source = `
-            x: int = 1
-            def f(x: int) -> int:
-                y:int = 2
-                y = x + y + 1
-                x = x + 1
-                return x * y
-            print(f(x))
-            print(x)
-        `
-        await runTest(source);
-        expect(importObject.output).to.equal("8\n1\n");
-    });
-
-    it('function test', async () => {
-        const source = `
-            def f(x:int)->int:
-            return x * x
-
-            a:int = 1
-            res:int = 0
-            while a <= 10:
-                res = res + f(a)
-                a = a + 1
-            print(res)
-        `
-        await runTest(source);
-        expect(importObject.output).to.equal("385\n");
-    });
 
     it('function error', async () => {
         try {
@@ -427,22 +436,6 @@ describe('test functions', () => {
             expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
         }
     });
-
-
-    // it('elif expression 1', async () => {
-    //     await runTest(`
-    //         x = 25
-    //         if x < 2:
-    //             print(0)
-    //         elif x < 10:
-    //             print(1)
-    //         elif x > 30:
-    //             print(2)
-    //         else:
-    //             print(3)
-    //     `);
-    //     expect(importObject.output).to.equal("3\n");
-    // });
 
     // it('elif expression 2', async () => {
     //     await runTest(`
