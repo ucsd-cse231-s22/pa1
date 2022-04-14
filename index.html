@@ -1,4 +1,5 @@
 <html>
+
 <head>
   <script src="https://cdn.jsdelivr.net/gh/AssemblyScript/wabt.js@1.0.20/index.js"></script>
   <script>const wabt = WabtModule;</script>
@@ -11,37 +12,37 @@
       padding: 0;
       height: 100%;
     }
-  
+
     .user-code {
-      /* width: 100%; */
+      width: 100%;
       /* height: 80em; */
       /* resize: none; */
       overflow: scroll;
       font-family: monospace;
-      width: 30em;
+      /* width: 40em; */
       height: 40em;
       resize: vertical;
     }
-  
+
     .interactions {
-      float: right;
-      width: 49%;
-      /* margin-left: 1em; */
+      float: left;
+      width: 50%;
+      margin-left: 5%;
       padding: 0;
       height: 100%;
     }
-  
+
     .repl-code {
       height: 2em;
       width: 30em;
       text-align: left;
       font-family: monospace;
     }
-  
+
     .prompt {
       vertical-align: middle;
     }
-  
+
     .output pre {
       max-width: 100%;
       white-space: break-spaces;
@@ -50,6 +51,7 @@
     }
   </style>
 </head>
+
 <body>
   <div>
     <div class="editor" style="width:30%" display:inline>
@@ -64,4 +66,5 @@
     </div>
   </div>
 </body>
+
 </html>
