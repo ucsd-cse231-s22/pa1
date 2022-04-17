@@ -164,16 +164,22 @@ export function tcStmt(s: Stmt<any>, functions: FunctionsEnv,
       // if (s?.typ) {
       //   variables.set(s.name, rhs.a);
       // }
-      const [found, typ] = variables.lookUpVar(s.name, -1); //locally
-      if (!found) {
-        const [allFound] = variables.lookUpVar(s.name, 0); // all scopes
-        if (allFound)
-          throw new Error(`Cannot assign variable that is not explicitly declared in this scope: ${s.name}`);
-        else
-          throw new ReferenceError(`Not a variable: ${s.name}`);
+      if (s.target.tag === "id"){
+        const [found, typ] = variables.lookUpVar(s.target.name, -1); //locally
+        if (!found) {
+          const [allFound] = variables.lookUpVar(s.target.name, 0); // all scopes
+          if (allFound)
+            throw new Error(`Cannot assign variable that is not explicitly` +
+              `declared in this scope: ${s.target.name}`);
+          else
+            throw new ReferenceError(`Not a variable: ${s.target}`);
+        }
+        else if (typ !== rhs.a) {
+          throw new TypeError(`Expect type '${typ}'; got type '${rhs.a}'`);
+        }
       }
-      else if (typ !== rhs.a) {
-        throw new TypeError(`Expect type '${typ}'; got type '${rhs.a}'`);
+      else {
+        throw new Error("not implemented");
       }
       return { ...s, value: rhs };
     }

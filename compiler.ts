@@ -148,8 +148,13 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, indent: number): Arra
     case "assign":
       var valStmts: Array<string> = [];
       valStmts = valStmts.concat(codeGenExpr(stmt.value, locals));
-      if (locals.has(stmt.name)) { valStmts.push(`(local.set $${stmt.name})`); }
-      else { valStmts.push(`(global.set $${stmt.name})`); }
+      if (stmt.target.tag === "id") {
+        if (locals.has(stmt.target.name)) { valStmts.push(`(local.set $${stmt.target.name})`); }
+        else { valStmts.push(`(global.set $${stmt.target.name})`); }
+      }
+      else {
+        throw new Error("not implemented");
+      }
       return valStmts.map(s => addIndent(s, indent));
     case "expr":
       const result = codeGenExpr(stmt.expr, locals);

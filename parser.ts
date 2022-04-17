@@ -1,6 +1,6 @@
 import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
-import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, FunDef, Program, Literal } from './ast';
+import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, FunDef, Program, Literal, LValue } from './ast';
 import { ParseError } from './error';
 
 export function parseProgram(source: string): Program<any> {
@@ -170,12 +170,12 @@ export function traverseStmt(t: TreeCursor, s: string,
     case "AssignStatement":
       // assign: x = 1
       t.firstChild(); // focused on name (the first child)
-      var name = s.substring(t.from, t.to);
+      var name = traverseLValue(t, s);
       t.nextSibling(); // focused on = sign. May need this for complex tasks, like +=!
       t.nextSibling(); // focused on the value expression
       var value = traverseExpr(t, s);
       t.parent();
-      stmts.push({ tag: "assign", name, value });
+      stmts.push({ tag: "assign", target: name, value });
       break;
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
@@ -216,6 +216,15 @@ export function traverseStmt(t: TreeCursor, s: string,
   }
 }
 
+export function traverseLValue(t: TreeCursor, s: string): LValue <any> {
+  switch(t.type.name) {
+    case "VariableName":
+      return { tag: "id", name: s.substring(t.from, t.to) };
+    default:
+      throw new ParseError("Could not parse expr at " +
+        t.from + " " + t.to + ": " + s.substring(t.from, t.to));
+  }
+}
 
 export function traverseType(t: TreeCursor, s: string): Type {
   switch (t.type.name) {

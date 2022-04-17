@@ -13,10 +13,15 @@ export type FuncBody<A> =
 export type TypedVar =
   | { name: string, typ: Type }
 
+// export type ClsDef<A> = 
+//   { a?: A, tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[] }
+
+
 export type Type =
   | "int"
   | "bool"
   | "none"
+  | { tag: "object", name: string }
 
 export type Literal<A> = 
   | { a?: A, tag: "number", value: number }
@@ -27,8 +32,15 @@ export type Literal<A> =
 export type CondBody<A> = 
   { cond: Expr<A>, body: Stmt<A>[]}
 
+export type MemberExpr<A> = 
+  { a ?: A, tag: "lookup", obj: Expr < A >, field: string }
+
+export type LValue<A> = 
+  | { a?: A, tag: "id", name: string, global?: boolean }
+  | MemberExpr<A>
+
 export type Stmt<A> =
-  | { a?: A, tag: "assign", name: string, value: Expr<A>, typ?: Type }
+  | { a?: A, tag: "assign", target: LValue<A>, value: Expr<A>, typ?: Type }
   | { a?: A, tag: "expr", expr: Expr<A> }
   | { a?: A, tag: "return", value: Expr<A> }
   | { a?: A, tag: "pass"}
@@ -41,6 +53,7 @@ export type Expr<A> =
   | { a?: A, tag: "unop", op: UnOp, expr: Expr<A> }
   | { a?: A, tag: "id", name: string, global?: boolean }
   | { a?: A, tag: "call", name: string, args: Expr<A>[] }
+  | MemberExpr<A>
 
 
 const binops = {
