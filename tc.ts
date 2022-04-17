@@ -271,11 +271,7 @@ export function tcLit(lit: Literal<any>): Literal<Type> {
 export function tcVarDef(s: VarDef<any>, local: BodyEnv): VarDef<Type> {
   const rhs = tcLit(s.init);
   const [found, typ] = local.lookUpVar(s.typedvar.name, -1);
-  if (found)
-    throw new Error(`Duplicate declaration of identifier ` +
-      `in the same scope: ${s.typedvar.name}`);
-  else
-    local.addDecl(s.typedvar.name, s.typedvar.typ);
+  local.addDecl(s.typedvar.name, s.typedvar.typ); // no redefinition error
   if (s.typedvar.typ !== rhs.a) {
     throw new TypeError(`Expect type '${s.typedvar.typ}'; ` +
       `got type '${rhs.a}'`);
@@ -287,7 +283,7 @@ export function tcProgram(p: Program<any>): Program<Type> {
   const functions = new Env<[Type[], Type]>();
   p.fundefs.forEach(s => {
     functions.addDecl(s.name, [s.params.map(p => p.typ), s.ret]);
-  });
+  }); // no redefinition error
 
   const variables = new Env<Type>();
   const vardefs = p.vardefs.map(s => tcVarDef(s, variables));

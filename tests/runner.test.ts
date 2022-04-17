@@ -464,6 +464,40 @@ describe('test functions', () => {
         } catch (error) {
             expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
         }
+
+        try {
+            await runTest(`
+                x:int = 1
+                def x()
+                  return
+            `);
+            expect(true).to.equal(false);
+        } catch (error) {
+            expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
+        }
+
+        try {
+            await runTest(`
+                x:int = 1
+                def x()
+                  return
+            `);
+            expect(true).to.equal(false);
+        } catch (error) {
+            expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
+        }
+
+        try {
+            await runTest(`
+                def f(x:int, x:bool):
+                    return
+            `);
+            expect(true).to.equal(false);
+        } catch (error) {
+            expect(error.message).to.equal("Duplicate declaration of identifier in the same scope: x");
+        }
+
+
     });
 
     // it('elif expression 2', async () => {

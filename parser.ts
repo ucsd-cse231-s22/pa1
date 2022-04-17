@@ -8,28 +8,28 @@ export function parseProgram(source: string): Program<any> {
   var vardefs: VarDef<any>[] = [];
   var fundefs: FunDef<any>[] = [];
   var stmts: Stmt<any>[] = [];
-  traverseProgram(t, source, vardefs, fundefs, stmts);
+  const idSet = new Set();
+  traverseProgram(t, source, vardefs, fundefs, stmts, idSet);
   return { vardefs, fundefs, stmts }
 }
 
 export function traverseProgram(t: TreeCursor, s: string,
   vardefs: VarDef<any>[], fundefs: FunDef<any>[],
-  stmts: Stmt<any>[]) {
+  stmts: Stmt<any>[], idSet:Set<any>) {
   // The top node in the program is a Script node with a list of children
   // that are various statements
-  const idSet = new Set();
   switch (t.node.type.name) {
     case "Script":
       if (!t.firstChild()) //in case of empty program
-        return
+        return;
       while (traverseDefs(t, s, vardefs, fundefs, idSet)) {
         if (!t.nextSibling())
-          return
+          return;
       }
       do {
         traverseStmt(t, s, stmts);
       } while (t.nextSibling());
-      break
+      break;
     // t.nextSibling() returns false when it reaches
     //  the end of the list of children
     // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
@@ -37,15 +37,15 @@ export function traverseProgram(t: TreeCursor, s: string,
     case "Body":  // function body
       t.firstChild(); //focus on semicolon
       if (!t.nextSibling()) //in case of empty program
-        return
+        return;
       while (traverseDefs(t, s, vardefs, fundefs, idSet)) {
         if (!t.nextSibling())
-          return
+          return;
       }
       do {
         traverseStmt(t, s, stmts);
       } while (t.nextSibling());
-      break
+      break;
     default:
       throw new ParseError("Could not parse program at " + t.node.from + " " + t.node.to);
   }
@@ -100,7 +100,8 @@ export function traverseDefs(t: TreeCursor, s: string,
         idSet.add(name);
       }
       t.nextSibling(); // Focus on ParamList
-      var params = traverseParameters(t, s);
+      const curIdSet = new Set();
+      var params = traverseParameters(t, s, curIdSet);
       t.nextSibling(); // Focus on Body or TypeDef
       var ret: Type = "none";
       var maybeTD = t;
@@ -114,7 +115,7 @@ export function traverseDefs(t: TreeCursor, s: string,
       const localvar: VarDef<any>[] = [];
       const localfun: FunDef<any>[] = [];
       const body: Stmt<any>[] = [];
-      traverseProgram(t, s, localvar, localfun, body);
+      traverseProgram(t, s, localvar, localfun, body, curIdSet);
       t.parent();      // Pop to Body !!
       t.parent();      // Pop to FunctionDefinition
       fundefs.push({
@@ -230,7 +231,7 @@ export function traverseType(t: TreeCursor, s: string): Type {
   }
 }
 
-export function traverseParameters(t: TreeCursor, s: string,): TypedVar[] {
+export function traverseParameters(t: TreeCursor, s: string, idSet: Set<any>): TypedVar[] {
   t.firstChild();  // Focuses on open paren
   const parameters = [];
   t.nextSibling(); // Focuses on a VariableName
@@ -241,6 +242,13 @@ export function traverseParameters(t: TreeCursor, s: string,): TypedVar[] {
     if (nextTagName !== "TypeDef") {
       throw new Error("Missed type annotation for parameter " + name)
     };
+    if (idSet.has(name)) {
+      throw new Error(`Duplicate declaration of identifier ` +
+        `in the same scope: ${name}`);
+    }
+    else {
+      idSet.add(name);
+    }
     t.firstChild();  // Enter TypeDef
     t.nextSibling(); // Focuses on type itself
     let typ = traverseType(t, s);
