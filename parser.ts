@@ -1,12 +1,13 @@
 import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
-import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, FunDef, Program, Literal, LValue } from './ast';
+import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, FunDef, Program, Literal, LValue, ClsDef } from './ast';
 import { ParseError } from './error';
 
 export function parseProgram(source: string): Program<any> {
   const t = parser.parse(source).cursor();
   var vardefs: VarDef<any>[] = [];
   var fundefs: FunDef<any>[] = [];
+  var clsdefs: ClsDef<any>[] = [];
   var stmts: Stmt<any>[] = [];
   const idSet = new Set();
   traverseProgram(t, source, vardefs, fundefs, stmts, idSet);
@@ -29,23 +30,13 @@ export function traverseProgram(t: TreeCursor, s: string,
       do {
         traverseStmt(t, s, stmts);
       } while (t.nextSibling());
+      t.parent();
       break;
     // t.nextSibling() returns false when it reaches
     //  the end of the list of children
     // console.log("traversed " + stmts.length + " statements ", stmts, "stopped at ", c.node);
     // return { vardefs, fundefs, stmts };
-    case "Body":  // function body
-      t.firstChild(); //focus on semicolon
-      if (!t.nextSibling()) //in case of empty program
-        return;
-      while (traverseDefs(t, s, vardefs, fundefs, idSet)) {
-        if (!t.nextSibling())
-          return;
-      }
-      do {
-        traverseStmt(t, s, stmts);
-      } while (t.nextSibling());
-      break;
+
     default:
       throw new ParseError("Could not parse program at " + t.node.from + " " + t.node.to);
   }
@@ -100,7 +91,7 @@ export function traverseDefs(t: TreeCursor, s: string,
         idSet.add(name);
       }
       t.nextSibling(); // Focus on ParamList
-      const curIdSet = new Set();
+      var curIdSet = new Set();
       var params = traverseParameters(t, s, curIdSet);
       t.nextSibling(); // Focus on Body or TypeDef
       var ret: Type = "none";
@@ -112,19 +103,69 @@ export function traverseDefs(t: TreeCursor, s: string,
       }
       t.nextSibling(); // Focus on Body
 
-      const localvar: VarDef<any>[] = [];
-      const localfun: FunDef<any>[] = [];
-      const body: Stmt<any>[] = [];
-      traverseProgram(t, s, localvar, localfun, body, curIdSet);
-      t.parent();      // Pop to Body !!
+      var localvar: VarDef<any>[] = [];
+      var localfun: FunDef<any>[] = [];
+      var body: Stmt<any>[] = [];
+      traverseFuncBody(t, s, localvar, localfun, body, curIdSet);
       t.parent();      // Pop to FunctionDefinition
       fundefs.push({
         name, params, ret,
         body: { vardefs: localvar, stmts: body }
       });
       return true;
+    
+    case "ClassDefinition":
+      t.firstChild(); // focus on class
+      t.nextSibling(); // focus on class name
+      var name = s.substring(t.from, t.to);
+      if (idSet.has(name)) {
+        throw new Error(`Duplicate declaration of identifier ` +
+          `in the same scope: ${name}`);
+      }
+      else {
+        idSet.add(name);
+      }
+      var curIdSet = new Set();
+      t.nextSibling(); // focus on father object (ArgList)
+      t.firstChild(); // (
+      t.nextSibling(); 
+      const super_obj = s.substring(t.from, t.to);
+      t.parent();
+      t.nextSibling(); // focus on body
+      t.firstChild(); // :
+      var localvar: VarDef<any>[] = [];
+      var localfun: FunDef<any>[] = [];
+      while (t.nextSibling()) {
+        if (!traverseDefs(t, s, localvar, localfun, curIdSet)){
+          throw new ParseError("Could not parse program at " + t.node.from + " " + t.node.to);
+        }
+      }
+      return true
+    
     default:
       return false;
+  }
+}
+
+export function traverseFuncBody(t: TreeCursor, s: string,
+  vardefs: VarDef<any>[], fundefs: FunDef<any>[],
+  stmts: Stmt<any>[], idSet: Set<any>) {
+  switch (t.node.type.name) {
+    case "Body":  // function body
+      t.firstChild(); //focus on semicolon
+      if (!t.nextSibling()) //in case of empty program
+        return;
+      while (traverseDefs(t, s, vardefs, fundefs, idSet)) {
+        if (!t.nextSibling())
+          return;
+      }
+      do {
+        traverseStmt(t, s, stmts);
+      } while (t.nextSibling());
+      t.parent(); // focus on body
+      break;
+    default:
+      throw new ParseError("Could not parse program at " + t.node.from + " " + t.node.to);
   }
 }
 

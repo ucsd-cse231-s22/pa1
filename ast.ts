@@ -13,8 +13,8 @@ export type FuncBody<A> =
 export type TypedVar =
   | { name: string, typ: Type }
 
-// export type ClsDef<A> = 
-//   { a?: A, tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[] }
+export type ClsDef<A> = 
+  { a?: A, tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[] }
 
 
 export type Type =

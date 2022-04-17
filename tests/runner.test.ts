@@ -536,5 +536,90 @@ describe('test functions', () => {
 
 });
 
+describe('test classes', () => {
+    const config = { importObject };
+
+    it('class definition', async () => {
+        await runTest(`
+            class Rat(object):
+                n: int = 0
+                d: int = 0
+                def __init__(self: Rat):
+                    pass
+            x:int = 1
+            r1: Rat = None
+            r1 = Rat()
+            r1.n = 4
+            r1.d = 5
+            print(r1.n)
+            x = r1.n
+            print(x + r1.n)
+        `);
+        expect(importObject.output).to.equal("4\n8\n");
+    });
+
+
+
+    it('elif expression 2', async () => {
+        await runTest(`
+            x:int = 5
+            if x <= 2:
+                x=0
+            elif x <= 10:
+                x=1
+            elif x >= 30:
+                x=2
+            else:
+                x=3
+            print(x)
+        `);
+        expect(importObject.output).to.equal("1\n");
+    });
+
+    it('while expression', async () => {
+        await runTest(`
+            limit:int = 100
+            x:int = 1
+            while x < limit:
+                x = x + 1
+            print(x)
+        `);
+        expect(importObject.output).to.equal("100\n");
+    });
+
+    it('return', async () => {
+        try {
+            await runTest(`
+                def f(x:int) -> bool:
+                  if x > 0:
+                    return x
+            `);
+            expect(true).to.equal(false);
+        } catch (error) {
+            expect(error.message).to.equal("All path in this function/method " +
+                "must have a return statement: f");
+        }
+
+        try {
+            await runTest(`
+                def f(x:int) -> bool:
+                  while True:
+                    x = x + 1
+                    if x > 10:
+                        return True
+            `);
+            expect(true).to.equal(false);
+        } catch (error) {
+            expect(error.message).to.equal("All path in this function/method " +
+                "must have a return statement: f");
+        }
+    });
+
+    // it('prints a unary operation 3', async () => {
+    //     await runTest("y = -5\nx=-y\nprint(x)\nprint(-(-x))");
+    //     expect(importObject.output).to.equal("5\n5\n");
+    // });
+
+});
 
 

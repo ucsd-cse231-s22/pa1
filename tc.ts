@@ -169,7 +169,7 @@ export function tcStmt(s: Stmt<any>, functions: FunctionsEnv,
         if (!found) {
           const [allFound] = variables.lookUpVar(s.target.name, 0); // all scopes
           if (allFound)
-            throw new Error(`Cannot assign variable that is not explicitly` +
+            throw new Error(`Cannot assign variable that is not explicitly ` +
               `declared in this scope: ${s.target.name}`);
           else
             throw new ReferenceError(`Not a variable: ${s.target}`);
