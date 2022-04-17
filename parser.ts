@@ -13,15 +13,16 @@ export function parseProgram(source: string): Program<any> {
 }
 
 export function traverseProgram(t: TreeCursor, s: string,
-  vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = [],
-  stmts: Stmt<any>[] = []) {
+  vardefs: VarDef<any>[], fundefs: FunDef<any>[],
+  stmts: Stmt<any>[]) {
   // The top node in the program is a Script node with a list of children
   // that are various statements
+  const idSet = new Set();
   switch (t.node.type.name) {
     case "Script":
       if (!t.firstChild()) //in case of empty program
         return
-      while (traverseDefs(t, s, vardefs, fundefs)) {
+      while (traverseDefs(t, s, vardefs, fundefs, idSet)) {
         if (!t.nextSibling())
           return
       }
@@ -37,7 +38,7 @@ export function traverseProgram(t: TreeCursor, s: string,
       t.firstChild(); //focus on semicolon
       if (!t.nextSibling()) //in case of empty program
         return
-      while (traverseDefs(t, s, vardefs, fundefs)) {
+      while (traverseDefs(t, s, vardefs, fundefs, idSet)) {
         if (!t.nextSibling())
           return
       }
@@ -51,17 +52,26 @@ export function traverseProgram(t: TreeCursor, s: string,
 }
 
 export function traverseDefs(t: TreeCursor, s: string,
-  vardefs: VarDef<any>[] = [], fundefs: FunDef<any>[] = []): boolean {
+  vardefs: VarDef<any>[], fundefs: FunDef<any>[], idSet: Set<any>): boolean {
   switch (t.type.name) {
     case "AssignStatement":
       t.firstChild(); // focused on name (the first child)
       var name = s.substring(t.from, t.to);
+      var pos: number = t.from;
       t.nextSibling(); // could be = sign or Typedef
       var typ: Type = undefined;
       var maybeTD = t;
       if (maybeTD.type.name !== "TypeDef") {
         t.parent()
         return false;
+      }
+
+      if (idSet.has(name)) {
+        throw new Error(`Duplicate declaration of identifier ` +
+          `in the same scope: ${name}`);
+      }
+      else {
+        idSet.add(name);
       }
       t.firstChild(); // focus on :
       t.nextSibling(); // focus on type
@@ -81,6 +91,14 @@ export function traverseDefs(t: TreeCursor, s: string,
       t.firstChild();  // Focus on def
       t.nextSibling(); // Focus on name of function
       var name = s.substring(t.from, t.to);
+      var pos: number = t.from;
+      if (idSet.has(name)) {
+        throw new Error(`Duplicate declaration of identifier ` +
+          `in the same scope: ${name}`);
+      }
+      else {
+        idSet.add(name);
+      }
       t.nextSibling(); // Focus on ParamList
       var params = traverseParameters(t, s);
       t.nextSibling(); // Focus on Body or TypeDef
@@ -134,7 +152,7 @@ export function traverseStmts(t: TreeCursor, s: string) {
   Invariant – t must focus on the same node at the end of the traversal
 */
 export function traverseStmt(t: TreeCursor, s: string,
-  stmts: Stmt<any>[] = []) {
+  stmts: Stmt<any>[]) {
   switch (t.type.name) {
     case "ReturnStatement":
       t.firstChild();  // Focus return keyword
