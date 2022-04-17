@@ -3,7 +3,6 @@ The type checker uses an array of BodyEnv as different level of scopes,
 making it easier(?) to add keywords like global and nonlocal
 This idea is borrowed from my classmate, Shanbin Ke.
 */
-import { type } from "os";
 import { CondBody, Expr, FunDef, Literal, Program, Stmt, Type, VarDef } from "./ast";
 
 // type FunctionsEnv = Map<string, [Type[], Type]>;
