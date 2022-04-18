@@ -345,11 +345,12 @@ export function traverseType(t: TreeCursor, s: string): Type {
   switch (t.type.name) {
     case "VariableName":
       const name = s.substring(t.from, t.to);
-      if (name === "int" || name === "bool" || name === "none") {
-        return name;
-      } else {
-        return { tag: "object", name: name };
-      }
+      return name
+      // if (name === "int" || name === "bool" || name === "none") {
+      //   return name;
+      // } else {
+      //   return { tag: "object", name: name };
+      // }
     default:
       throw new Error("Unknown type: " + t.type.name);
 

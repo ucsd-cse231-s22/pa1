@@ -14,14 +14,14 @@ export type TypedVar =
   | { name: string, typ: Type }
 
 export type ClsDef<A> = 
-  { a?: A, tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[] }
+  { tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[] }
 
 
 export type Type =
   | "int"
   | "bool"
   | "none"
-  | { tag: "object", name: string }
+  | string
 
 export type Literal<A> = 
   | { a?: A, tag: "number", value: number }
@@ -33,7 +33,7 @@ export type CondBody<A> =
   { cond: Expr<A>, body: Stmt<A>[]}
 
 export type MemberExpr<A> = 
-  { a ?: A, tag: "lookup", obj: Expr <A>, field: string }
+  { a?: A, tag: "lookup", obj: Expr<A>, field: string }
 
 export type LValue<A> = 
   | { a?: A, tag: "id", name: string, global?: boolean }
