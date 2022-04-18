@@ -1,5 +1,5 @@
 export type Program<A> = 
-  { vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
+  { vardefs: VarDef<A>[], fundefs: FunDef<A>[], clsdefs:ClsDef<A>[], stmts: Stmt<A>[] }
 
 export type VarDef<A> =
   { typedvar: TypedVar, init: Literal<A> };
@@ -33,7 +33,7 @@ export type CondBody<A> =
   { cond: Expr<A>, body: Stmt<A>[]}
 
 export type MemberExpr<A> = 
-  { a ?: A, tag: "lookup", obj: Expr < A >, field: string }
+  { a ?: A, tag: "lookup", obj: Expr <A>, field: string }
 
 export type LValue<A> = 
   | { a?: A, tag: "id", name: string, global?: boolean }
