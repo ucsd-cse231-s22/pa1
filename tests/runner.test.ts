@@ -538,29 +538,7 @@ describe('test functions', () => {
 
 describe('test classes', () => {
     const config = { importObject };
-
     it('class definition', async () => {
-        await runTest(`
-            class Rat(object):
-                n: int = 0
-                d: int = 0
-                def __init__(self: Rat):
-                    pass
-            x:int = 1
-            r1: Rat = None
-            r1 = Rat()
-            r1.n = 4
-            r1.d = 5
-            print(r1.n)
-            x = r1.n
-            print(x + r1.n)
-        `);
-        expect(importObject.output).to.equal("4\n8\n");
-    });
-
-
-
-    it('elif expression 2', async () => {
         await runTest(`
             class Counter(object):
                 n: int = 456
@@ -571,6 +549,25 @@ describe('test classes', () => {
             print(c.n)
         `);
         expect(importObject.output).to.equal("456\n1\n");
+    });
+
+    it('class definition', async () => {
+        await runTest(`
+            class Rat(object):
+                n: int = 123
+                d: int = 456
+                def __init__(self: Rat):
+                    pass
+            x:int = 1
+            r1: Rat = None
+            r1 = Rat()
+            r1.n = 4
+            r1.d = 5
+            print(r1.n)
+            x = r1.n
+            print(x + r1.d)
+        `);
+        expect(importObject.output).to.equal("4\n9\n");
     });
 
     it('while expression', async () => {

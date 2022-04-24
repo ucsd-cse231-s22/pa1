@@ -33,6 +33,8 @@ export async function run(watSource: string, config: any): Promise<any> {
 
   const parsed = wabtApi.parseWat("example", watSource);
   const binary = parsed.toBinary({});
+  var memory = new WebAssembly.Memory({ initial: 10, maximum: 100 });
+  config = { ...config, env: { memory: memory } };
   const wasmModule = await WebAssembly.instantiate(binary.buffer, config);
   return (wasmModule.instance.exports as any)._start();
 }
@@ -127,14 +129,16 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       valStmts.push(`(call $${toCall})`);
       return valStmts;
     case "getfield":
-      return codeGenMemberExpr(expr, locals, clsEnv);
+      const fieldStmts = codeGenMemberExpr(expr, locals, clsEnv);
+      fieldStmts.push(`(i32.load)`);
+      return fieldStmts;
     }
 }
 
 export function codeGenMemberExpr(expr: MemberExpr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
   const cls = clsEnv.get(expr.obj.a);
-  objStmt.push(`(i32.add (i32.const ${cls.indexOfField.get(expr.field)}))`);
+  objStmt.push(`(i32.add (i32.const ${cls.indexOfField.get(expr.field) * 4}))`);
   return objStmt;
 }
 
@@ -181,7 +185,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
         else { valStmts.push(`(global.set $${stmt.target.name})`); }
       }
       else if (stmt.target.tag === "getfield") {
-        var tarStmts = codeGenExpr(stmt.target, locals, clsEnv);
+        var tarStmts = codeGenMemberExpr(stmt.target, locals, clsEnv);
         valStmts = tarStmts.concat(valStmts);
         valStmts.push(`(i32.store)`)
       }
@@ -302,6 +306,7 @@ export function compile(source: string): string {
   }
 
   return `(module
+  (import "env" "memory" (memory $0 1))
   (func $print_num (import "imports" "print_num") (param i32) (result i32))
   (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
   (func $print_none (import "imports" "print_none") (param i32) (result i32))
