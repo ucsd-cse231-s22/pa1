@@ -1,9 +1,11 @@
+import { env } from 'process';
 import wabt from 'wabt';
-import { BinOp, CondBody, Expr, FuncBody, FunDef, Literal, Program, Stmt, Type, VarDef } from "./ast";
+import { BinOp, ClsDef, CondBody, Expr, FuncBody, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef } from "./ast";
 import { parseProgram } from './parser';
 import { tcProgram } from './tc';
 
 type Env = Map<string, boolean>;
+type ClsEnv = Map<string, ClsDef<Type>>;
 
 function addIndent(s: string, indent: number = 0): string {
   return "  ".repeat(indent) + s;
@@ -22,8 +24,8 @@ function variableNames(vardefs: VarDef<Type>[]): string[] {
   return vars;
 }
 
-function varsFunsStmts(p: Program<Type>): [string[], FunDef<Type>[], Stmt<Type>[]] {
-  return [variableNames(p.vardefs), p.fundefs, p.stmts];
+function varsFunsStmts(p: Program<Type>): [string[], FunDef<Type>[], ClsDef<Type>[], Stmt<Type>[]] {
+  return [variableNames(p.vardefs), p.fundefs, p.clsdefs, p.stmts];
 }
 
 export async function run(watSource: string, config: any): Promise<any> {
@@ -70,7 +72,7 @@ export function codeGenLit(lit: Literal<Type>): Array<string> {
   }
 }
 
-export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
+export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   switch (expr.tag) {
     case "literal":
       return codeGenLit(expr.value);
@@ -80,13 +82,13 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
       if (locals.has(expr.name)) { return [`(local.get $${expr.name})`]; }
       else { return [`(global.get $${expr.name})`]; }
     case "binop": {
-      const lhsExprs = codeGenExpr(expr.lhs, locals);
-      const rhsExprs = codeGenExpr(expr.rhs, locals);
+      const lhsExprs = codeGenExpr(expr.lhs, locals, clsEnv);
+      const rhsExprs = codeGenExpr(expr.rhs, locals, clsEnv);
       const opstmts = opStmts(expr.op);
       return [...lhsExprs, ...rhsExprs, ...opstmts];
     }
     case "unop":
-      const unaryStmts = codeGenExpr(expr.expr, locals);
+      const unaryStmts = codeGenExpr(expr.expr, locals, clsEnv);
       switch (expr.op) {
         case "-": return ["(i32.const 0)", ...unaryStmts, "(i32.sub)"];
         case "not": return ["(i32.const 1)", ...unaryStmts, "(i32.sub)"];
@@ -94,8 +96,27 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
         //   throw new Error(`Unhandled or unknown op: ${expr.op}`);
       }
     case "call":
-      const valStmts = expr.args.map(e => codeGenExpr(e, locals)).flat();
+      const valStmts = expr.args.map(e => codeGenExpr(e, locals, clsEnv)).flat();
       let toCall = expr.name;
+      if (clsEnv.has(expr.name)) {
+        const clsdef = clsEnv.get(expr.name);
+        let fieldstmts: Array<string> = [];
+        clsdef.fields.map((f, i) => {
+          fieldstmts.push(
+            `(global.get $heap)`,
+            `(i32.add (i32.const ${4 * i}))`,
+            codeGenLit(f.init)[0],
+            `(i32.store)`
+          );
+        })
+        fieldstmts.push(
+          `(global.get $heap) ;; return value of the object`, 
+          `(global.get $heap)`,
+          `(i32.add (i32.const ${clsdef.fields.length * 4}))`,
+          `(global.set $heap)`,
+        );
+        return fieldstmts;
+      }
       if (expr.name === "print") {
         switch (expr.args[0].a) {
           case "bool": toCall = "print_bool"; break;
@@ -105,13 +126,21 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
       }
       valStmts.push(`(call $${toCall})`);
       return valStmts;
-  }
+    case "getfield":
+      return codeGenMemberExpr(expr, locals, clsEnv);
+    }
 }
 
+export function codeGenMemberExpr(expr: MemberExpr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
+  const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
+  const cls = clsEnv.get(expr.obj.a);
+  objStmt.push(`(i32.add (i32.const ${cls.indexOfField.get(expr.field)}))`);
+  return objStmt;
+}
 
-export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, indent: number, tag = "if"): Array<string> {
-  const cond = codeGenExpr(condbody.cond, locals).map(s => addIndent(s, indent));
-  const body = condbody.body.map(s => codeGenStmt(s, locals, indent + 2)).flat();
+export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, clsEnv: ClsEnv, indent: number, tag = "if"): Array<string> {
+  const cond = codeGenExpr(condbody.cond, locals, clsEnv).map(s => addIndent(s, indent));
+  const body = condbody.body.map(s => codeGenStmt(s, locals, clsEnv, indent + 2)).flat();
 
   // let stmt = cond.concat([`(if`, `(then`, ...body]);
   let stmt = [...cond,
@@ -139,33 +168,46 @@ export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, indent: n
 }
 
 
-export function codeGenStmt(stmt: Stmt<Type>, locals: Env, indent: number): Array<string> {
+export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, indent: number): Array<string> {
   switch (stmt.tag) {
     case "return":
-      var valStmts = codeGenExpr(stmt.value, locals);
+      var valStmts = codeGenExpr(stmt.value, locals, clsEnv);
       valStmts.push("return");
       return valStmts.map(s => addIndent(s, indent));
     case "assign":
-      var valStmts: Array<string> = [];
-      valStmts = valStmts.concat(codeGenExpr(stmt.value, locals));
+      var valStmts: Array<string> = codeGenExpr(stmt.value, locals, clsEnv);
       if (stmt.target.tag === "id") {
         if (locals.has(stmt.target.name)) { valStmts.push(`(local.set $${stmt.target.name})`); }
         else { valStmts.push(`(global.set $${stmt.target.name})`); }
       }
+      else if (stmt.target.tag === "getfield") {
+        var tarStmts = codeGenExpr(stmt.target, locals, clsEnv);
+        valStmts = tarStmts.concat(valStmts);
+        valStmts.push(`(i32.store)`)
+      }
+      // valStmts = valStmts.concat(codeGenExpr(stmt.value, locals, clsEnv));
+      // if (stmt.target.tag === "id") {
+      //   if (locals.has(stmt.target.name)) { valStmts.push(`(local.set $${stmt.target.name})`); }
+      //   else { valStmts.push(`(global.set $${stmt.target.name})`); }
+      // }
+      // else if (stmt.target.tag === "getfield") {
+      //   const tarStmt = codeGenMemberExpr(stmt.target, locals, clsEnv);
+      //   valStmts.concat();
+      // }
       else {
         throw new Error("not implemented");
       }
       return valStmts.map(s => addIndent(s, indent));
     case "expr":
-      const result = codeGenExpr(stmt.expr, locals);
+      const result = codeGenExpr(stmt.expr, locals, clsEnv);
       result.push("(local.set $scratch)");
       return result.map(s => addIndent(s, indent));
     case "pass":
       return [];
     case "if":
-      const ifcondbody = codeGenCondBody(stmt.ifstmt, locals, indent);
-      const elifcondbody = stmt.elifstmt.map(p => codeGenCondBody(p, locals, indent + 2, "elif")).flat();
-      const elsestmt = stmt.elsestmt.map(p => codeGenStmt(p, locals, indent + 2)).flat();
+      const ifcondbody = codeGenCondBody(stmt.ifstmt, locals, clsEnv, indent);
+      const elifcondbody = stmt.elifstmt.map(p => codeGenCondBody(p, locals, clsEnv, indent + 2, "elif")).flat();
+      const elsestmt = stmt.elsestmt.map(p => codeGenStmt(p, locals, clsEnv, indent + 2)).flat();
       // console.log([...ifcondbody, `(else`, ...elifcondbody, ...elsestmt, `br 0`, `)`]);
       return [...ifcondbody,
         addIndent(`(else`, indent + 1),
@@ -176,7 +218,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, indent: number): Arra
         addIndent(`)`, indent)
       ];
     case "while":
-      const whilecondbody = codeGenCondBody(stmt.whilestmt, locals, indent + 2, "while");
+      const whilecondbody = codeGenCondBody(stmt.whilestmt, locals, clsEnv, indent + 2, "while");
       // let cond = codeGenExpr(stmt.whilestmt.cond, locals, indent + 2);
       // const body = stmt.whilestmt.body.map(s => codeGenStmt(s, locals, indent + 4)).flat();
       return [addIndent(`(block`, indent),
@@ -193,7 +235,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, indent: number): Arra
   }
 }
 
-export function codeGenFun(f: FunDef<Type>, locals: Env, indent: number): Array<string> {
+export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number): Array<string> {
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
 
   // Construct the environment for the function body
@@ -206,7 +248,7 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, indent: number): Array<
   const varDecls = variables.map(v => `(local $${v} i32)`).map(v => addIndent(v, indent + 1)).join("\n");
   const varAssign = f.body.vardefs.map(v => codeGenVars(v, withParamsAndVariables, indent + 1)).join("\n");
 
-  const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables, indent + 1)).flat();
+  const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables, clsEnv, indent + 1)).flat();
   const stmtsBody = stmts.join("\n");
   return [`(func $${f.name} ${params} (result i32)`,
   addIndent(`(local $scratch i32)`, indent + 1),
@@ -226,17 +268,27 @@ export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): strin
   return valStmts.map(s => addIndent(s, indent)).join("\n");
 }
 
+export function codeGenCls(c: ClsDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number): Array<string> {
+  const methods = c.methods.map(m => {
+    return codeGenFun(m, locals, clsEnv, indent)
+  }).flat();
+  return methods.map(s => addIndent(s, indent));
+}
+
 export function compile(source: string): string {
   let ast = parseProgram(source);
   ast = tcProgram(ast);
   let basicIndent = 1;
   const emptyEnv = new Map<string, boolean>();
-  const [vars, funs, stmts] = varsFunsStmts(ast);
-  const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv, basicIndent)).map(f => f.join("\n"));
+  const clsEnv = new Map<string, ClsDef<Type>>();
+  const [vars, funs, classes, stmts] = varsFunsStmts(ast);
+  classes.map(c => clsEnv.set(c.name, c));
+  const clsCode: string[] = classes.map(c => codeGenCls(c, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
+  const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
   const varDecls = vars.map(v => `(global $${v} (mut i32) (i32.const 0))`).join("\n");
   const varAssign = ast.vardefs.map(v => codeGenVars(v, emptyEnv, basicIndent + 1));
-  const allStmts = stmts.map(s => codeGenStmt(s, emptyEnv, basicIndent + 1)).flat();
+  const allStmts = stmts.map(s => codeGenStmt(s, emptyEnv, clsEnv, basicIndent + 1)).flat();
 
   const main = [`(local $scratch i32)`, ...varAssign, ...allStmts].join("\n");
 
@@ -253,8 +305,10 @@ export function compile(source: string): string {
   (func $print_num (import "imports" "print_num") (param i32) (result i32))
   (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
   (func $print_none (import "imports" "print_none") (param i32) (result i32))
+  (global $heap (mut i32) (i32.const 4))
   ${varDecls}
   ${allFuns}
+  ${clsCode}
   
   (func (export "_start") ${retType}
     ${main}

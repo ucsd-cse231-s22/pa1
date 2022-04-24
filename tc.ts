@@ -4,12 +4,15 @@ making it easier(?) to add keywords like global and nonlocal
 This idea is borrowed from my classmate, Shanbin Ke.
 */
 import { StringifyOptions } from "querystring";
+import { ObjectFlags } from "typescript";
 import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef } from "./ast";
 
 // type FunctionsEnv = Map<string, [Type[], Type]>;
 // type BodyEnv = Map<string, Type>;
 type FunctionsEnv = Env<[Type[], Type]>;
 type BodyEnv = Env<Type>;
+// type Class
+type ClassEnv = Env<OneClass<Type>>;
 
 class Env<T> {
   decls: Map<string, T | undefined>[];
@@ -54,7 +57,7 @@ class Env<T> {
   }
 }
 
-class ClassEnv<T> {
+class OneClass<T> {
   vars: Map<string, T>;
   funs: Map<string, [Type[], Type]>;
   constructor() {
@@ -74,7 +77,7 @@ export function tcLit(lit: Literal<any>): Literal<Type> {
   }
 }
 
-export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: Env<ClassEnv<Type>>): Expr<Type> {
+export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv): Expr<Type> {
   switch (e.tag) {
     case "literal":
       const lit = tcLit(e.value);
@@ -154,7 +157,11 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         const newArgs = [tcExpr(e.args[0], variables, functions, classes)];
         return { ...e, a: "none", args: newArgs };
       }
-      var [found, [args, ret]] = functions.lookUpVar(e.name, 0)
+      var [found, cls] = classes.lookUpVar(e.name);
+      if (found) {
+        return { ...e, a: e.name };
+      }
+      var [found, [args, ret]] = functions.lookUpVar(e.name, 0);
       if (!found) {
         throw new Error(`Not a function or class: ${e.name}`);
         // throw new Error(`function ${e.name} not found`);
@@ -173,25 +180,28 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         return argtyp;
       });
       return { ...e, a: ret, args: newArgs };
-    case "lookup":
+    case "getfield":
       return tcMemberExpr(e, variables, functions, classes);
   }
 }
 
-export function tcMemberExpr(e: MemberExpr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: Env<ClassEnv<Type>>): MemberExpr<Type> {
+export function tcMemberExpr(e: MemberExpr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv): MemberExpr<Type> {
   const obj = tcExpr(e.obj, variables, functions, classes);
-  const [found, clsEnv] = classes.lookUpVar(obj.a);
-  if (!found) {
-    throw new Error("Should not be triggerued");
+  if (obj.a === "int" || obj.a === "bool" || obj.a === "none") {
+    throw new Error(`There is no attribute named ${e.field} in class ${obj.a}`);
   }
-  if (!clsEnv.vars.has(e.field)) {
+  const [found, cls] = classes.lookUpVar(obj.a);  
+  if (!found) {
+    throw new Error(`Invalid type annotation; there is no class named: ${obj.a}`);
+  }
+  if (!cls.vars.has(e.field)) {
     throw new Error(`There is no attribute named ${e.field} in class ${obj.tag}`);
   }
-  return { ...e, a: clsEnv.vars.get(e.field), obj };
+  return { ...e, a: cls.vars.get(e.field), obj };
 }
 
 export function tcStmt(s: Stmt<any>, variables: BodyEnv, 
-  functions: FunctionsEnv, classes: Env<ClassEnv<Type>>,
+  functions: FunctionsEnv, classes: ClassEnv,
   currentReturn: Type): Stmt<Type> {
   switch (s.tag) {
     case "assign": {
@@ -213,7 +223,7 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
           throw new TypeError(`Expect type '${typ}'; got type '${rhs.a}'`);
         }
         return { ...s, value: rhs };
-      } else if (s.target.tag === "lookup") {
+      } else if (s.target.tag === "getfield") {
         const target = tcMemberExpr(s.target, variables, functions, classes);
         if (target.a !== rhs.a) {
           throw new TypeError(`Expect type '${target.a}'; got type '${rhs.a}'`);
@@ -255,7 +265,7 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
 }
 
 export function tcCondBody(condbody: CondBody<any>, variables: BodyEnv, 
-  functions: FunctionsEnv, classes: Env<ClassEnv<Type>>,
+  functions: FunctionsEnv, classes: ClassEnv,
   currentReturn: Type): CondBody<Type> {
   const newCond = tcExpr(condbody.cond, variables, functions, classes);
   const newBody = condbody.body.map(bs => tcStmt(bs, variables, functions, classes, currentReturn));
@@ -280,7 +290,7 @@ export function returnable(stmt: Stmt<Type>): boolean {
   return false;
 }
 
-export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, functions: FunctionsEnv, classes: Env<ClassEnv<Type>>) {
+export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv) {
   // const bodyvars = new Map<string, Type>(variables.entries());
   if (f.ret !== "none" && !f.body.stmts.some(returnable)) {
     throw new Error(`All path in this function/method ` +
@@ -308,7 +318,7 @@ export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, functions: Functio
 }
 
 export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
-  functions: FunctionsEnv, classes: Env<ClassEnv<Type>>): ClsDef<Type> {
+  functions: FunctionsEnv, classes: ClassEnv): ClsDef<Type> {
   const [found] = classes.lookUpVar(c.super);
   if (!found) {
     throw new Error(`Super class not defined: ${c.super}`)
@@ -317,15 +327,20 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   variables.addScope();
   functions.addScope();
   const newFields = c.fields.map(v => tcVarDef(v, variables, classes));
-  const newMethods = c.methods.map(s => tcFuncDef(s, variables, functions, classes));
+  const newMethods = c.methods.map(s => {
+    let method = tcFuncDef(s, variables, functions, classes);
+    return {...method, name: `${c.name}$${method.name}`}
+  });
   classes.addDecl(c.name, { 
     vars: variables.removeScope(), 
     funs: functions.removeScope()
   });
-  return { ...c, methods: newMethods, fields: newFields };
+  let indexOfField = new Map<string, number>();
+  newFields.forEach((f, i) => indexOfField.set(f.typedvar.name, i));
+  return { ...c, methods: newMethods, fields: newFields, indexOfField };
 }
 
-export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: Env<ClassEnv<Type>>): VarDef<Type> {
+export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): VarDef<Type> {
   const rhs = tcLit(s.init);
   // const [found, typ] = local.lookUpVar(s.typedvar.name, -1);
   local.addDecl(s.typedvar.name, s.typedvar.typ); // no redefinition error
@@ -355,7 +370,7 @@ export function tcProgram(p: Program<any>): Program<Type> {
   p.fundefs.forEach(s => {
     functions.addDecl(s.name, [s.params.map(p => p.typ), s.ret]);
   }); // no redefinition error
-  const classes = new Env<ClassEnv<Type>>();
+  const classes = new Env<OneClass<Type>>();
   classes.addDecl("object", undefined);
   p.clsdefs.forEach(c => {
     classes.addDecl(c.name, undefined);
@@ -370,5 +385,5 @@ export function tcProgram(p: Program<any>): Program<Type> {
     const res = tcStmt(s, variables, functions, classes, "none");
     return res;
   });
-  return { ...p, vardefs, fundefs, stmts };
+  return { ...p, vardefs, fundefs, clsdefs, stmts };
 }

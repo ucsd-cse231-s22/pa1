@@ -325,9 +325,8 @@ export function traverseMemberExpr(t:TreeCursor, s:string): MemberExpr<any> {
   t.nextSibling(); // PropertyName
   const field = s.substring(t.from, t.to);
   t.parent();
-  return { tag: "lookup", obj, field };
+  return { tag: "getfield", obj, field };
 }
-
 
 export function traverseLValue(t: TreeCursor, s: string): LValue <any> {
   switch(t.type.name) {
@@ -345,7 +344,7 @@ export function traverseType(t: TreeCursor, s: string): Type {
   switch (t.type.name) {
     case "VariableName":
       const name = s.substring(t.from, t.to);
-      return name
+      return name;
       // if (name === "int" || name === "bool" || name === "none") {
       //   return name;
       // } else {

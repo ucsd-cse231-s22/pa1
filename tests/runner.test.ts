@@ -562,18 +562,15 @@ describe('test classes', () => {
 
     it('elif expression 2', async () => {
         await runTest(`
-            x:int = 5
-            if x <= 2:
-                x=0
-            elif x <= 10:
-                x=1
-            elif x >= 30:
-                x=2
-            else:
-                x=3
-            print(x)
+            class Counter(object):
+                n: int = 456
+            c:Counter = None
+            c = Counter()
+            print(c.n)
+            c.n = 1
+            print(c.n)
         `);
-        expect(importObject.output).to.equal("1\n");
+        expect(importObject.output).to.equal("456\n1\n");
     });
 
     it('while expression', async () => {

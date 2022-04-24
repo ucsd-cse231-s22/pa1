@@ -14,7 +14,7 @@ export type TypedVar =
   | { name: string, typ: Type }
 
 export type ClsDef<A> = 
-  { tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[] }
+  { tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[], indexOfField?: Map<string, number> }
 
 
 export type Type =
@@ -33,7 +33,7 @@ export type CondBody<A> =
   { cond: Expr<A>, body: Stmt<A>[]}
 
 export type MemberExpr<A> = 
-  { a?: A, tag: "lookup", obj: Expr<A>, field: string }
+  { a?: A, tag: "getfield", obj: Expr<A>, field: string }
 
 export type LValue<A> = 
   | { a?: A, tag: "id", name: string, global?: boolean }
@@ -47,6 +47,7 @@ export type Stmt<A> =
   | { a?: A, tag: "if", ifstmt: CondBody<A>, elifstmt?: CondBody<A>[], elsestmt?: Stmt<A>[]}
   | { a?: A, tag: "while", whilestmt: CondBody<A> }
 
+
 export type Expr<A> = 
   | { a?: A, tag: "literal", value: Literal<A> }
   | { a?: A, tag: "binop", op: BinOp, lhs: Expr<A>, rhs: Expr<A> }
@@ -54,6 +55,7 @@ export type Expr<A> =
   | { a?: A, tag: "id", name: string, global?: boolean }
   | { a?: A, tag: "call", name: string, args: Expr<A>[] }
   | MemberExpr<A>
+  | { a?: A, tag: "method", obj: Expr<A>, name: string, args: Expr<A>[]}
 
 
 const binops = {
