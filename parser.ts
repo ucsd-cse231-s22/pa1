@@ -222,7 +222,7 @@ export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
         } else if (decl === "FunctionDefinition") {
           fundefs.push(traverseFunDef(t, s, idSet));
         } else {
-          throw new ParseError("Could not parse statement at " +
+          throw new TypeError("Could not parse statement at " +
             t.from + " " + t.to + ": " + s.substring(t.from, t.to));
         }
       }
