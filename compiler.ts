@@ -132,6 +132,11 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       const fieldStmts = codeGenMemberExpr(expr, locals, clsEnv);
       fieldStmts.push(`(i32.load)`);
       return fieldStmts;
+    case "method":
+      const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
+      const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
+      return [...objStmt, ...argInstrs, 
+      `(call $${expr.obj.a}$${expr.name})`];
     }
 }
 
@@ -239,7 +244,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
   }
 }
 
-export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number): Array<string> {
+export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number, isMethod: boolean = false): Array<string> {
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
 
   // Construct the environment for the function body
@@ -248,7 +253,10 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   f.params.forEach(p => withParamsAndVariables.set(p.name, true));
 
   // Construct the code for params and variable declarations in the body
-  const params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
+  let params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
+  if (isMethod) {
+    params = `(param $self i32) ` + params;
+  }
   const varDecls = variables.map(v => `(local $${v} i32)`).map(v => addIndent(v, indent + 1)).join("\n");
   const varAssign = f.body.vardefs.map(v => codeGenVars(v, withParamsAndVariables, indent + 1)).join("\n");
 
@@ -273,10 +281,13 @@ export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): strin
 }
 
 export function codeGenCls(c: ClsDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number): Array<string> {
+  locals.set("self", true);
   const methods = c.methods.map(m => {
-    return codeGenFun(m, locals, clsEnv, indent)
+    m.name = `${c.name}$${m.name}`;
+    return codeGenFun(m, locals, clsEnv, indent, true);
   }).flat();
-  return methods.map(s => addIndent(s, indent));
+  locals.delete("self");
+  return methods;
 }
 
 export function compile(source: string): string {

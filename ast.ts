@@ -75,3 +75,7 @@ export type UnOp = keyof (typeof unops);
 export function isUnOp(maybeOp: string): maybeOp is UnOp {
   return maybeOp in unops;
 }
+
+export function isCls(maybeCls: Type): maybeCls is Type {
+  return (maybeCls !== "int") && (maybeCls !== "bool") && (maybeCls !== "none")
+}

@@ -570,44 +570,71 @@ describe('test classes', () => {
         expect(importObject.output).to.equal("4\n9\n");
     });
 
-    it('while expression', async () => {
+    it('method test', async () => {
         await runTest(`
-            limit:int = 100
-            x:int = 1
-            while x < limit:
-                x = x + 1
-            print(x)
+            class Counter(object):
+                n: int = 0
+                def inc(self:Counter):
+                    self.n = self.n + 1
+            c:Counter = None
+            c = Counter()
+            c.inc()
+            print(c.n)
+            c.inc()
+            print(c.n)
         `);
-        expect(importObject.output).to.equal("100\n");
+        expect(importObject.output).to.equal("1\n2\n");
     });
 
-    it('return', async () => {
-        try {
-            await runTest(`
-                def f(x:int) -> bool:
-                  if x > 0:
-                    return x
-            `);
-            expect(true).to.equal(false);
-        } catch (error) {
-            expect(error.message).to.equal("All path in this function/method " +
-                "must have a return statement: f");
-        }
-
-        try {
-            await runTest(`
-                def f(x:int) -> bool:
-                  while True:
-                    x = x + 1
-                    if x > 10:
-                        return True
-            `);
-            expect(true).to.equal(false);
-        } catch (error) {
-            expect(error.message).to.equal("All path in this function/method " +
-                "must have a return statement: f");
-        }
+    it('method test', async () => {
+        await runTest(`
+            class Counter(object):
+                n: int = 0
+                def inc(self:Counter, n: int):
+                    self.n = self.n + n
+            c:Counter = None
+            c = Counter()
+            c.inc(5)
+            print(c.n)
+        `);
+        expect(importObject.output).to.equal("5\n");
     });
+
+    it('method test', async () => {
+        await runTest(`
+            class Counter(object):
+                n: int = 0
+                def inc(self:Counter):
+                    self.n = self.n + 1
+            c:int = 1
+            c = Counter().n
+            print(c)
+        `);
+        expect(importObject.output).to.equal("0\n");
+    });
+
+    it('class test', async () => {
+        await runTest(`
+        class Point(object):
+            x : int = 77
+            y : int = 99
+
+        def flip(toflip : Point) -> Point:
+            flipped : Point = None
+            flipped = Point()
+            flipped.x = toflip.y
+            flipped.y = toflip.x
+            return flipped
+
+        p : Point = None
+        p = Point()
+        print(flip(flip(flip(p))).x)
+        `);
+        expect(importObject.output).to.equal("99\n");
+    });
+
+
+
 
     // it('prints a unary operation 3', async () => {
     //     await runTest("y = -5\nx=-y\nprint(x)\nprint(-(-x))");

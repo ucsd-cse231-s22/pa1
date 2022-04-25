@@ -5,7 +5,7 @@ This idea is borrowed from my classmate, Shanbin Ke.
 */
 import { StringifyOptions } from "querystring";
 import { ObjectFlags } from "typescript";
-import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef } from "./ast";
+import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, isCls } from "./ast";
 
 // type FunctionsEnv = Map<string, [Type[], Type]>;
 // type BodyEnv = Map<string, Type>;
@@ -154,7 +154,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       if (e.name === "print") {
         if (e.args.length !== 1)
           throw new Error("print expects a single argument");
-        const newArgs = [tcExpr(e.args[0], variables, functions, classes)];
+        var newArgs = [tcExpr(e.args[0], variables, functions, classes)];
         return { ...e, a: "none", args: newArgs };
       }
       var [found, cls] = classes.lookUpVar(e.name);
@@ -172,7 +172,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         throw new Error(`Expected ${args.length} arguments; got ${e.args.length}`);
       }
 
-      const newArgs = args.map((a, i) => {
+      var newArgs = args.map((a, i) => {
         const argtyp = tcExpr(e.args[i], variables, functions, classes);
         if (a !== argtyp.a) {
           throw new TypeError(`Expected ${a}; got type ${argtyp} in parameter ${i + 1}`);
@@ -182,7 +182,46 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       return { ...e, a: ret, args: newArgs };
     case "getfield":
       return tcMemberExpr(e, variables, functions, classes);
+    case "method":
+      const newObj = tcExpr(e.obj, variables, functions, classes);
+      if (newObj.a === "int" || newObj.a === "bool" || newObj.a === "none") {
+        throw new Error(`There is no method named ${e.name} in class ${newObj.a}`);
+      }
+      var [found, cls] = classes.lookUpVar(newObj.a);
+      if (!found) {
+        throw new Error("Should not happened");
+      }
+      if (!cls.funs.has(e.name)) {
+        throw new Error(`There is no method named ${e.name} in class ${newObj.a}`);
+      }
+      // var newArgs = e.args.map(a => tcExpr(a, variables, functions, classes));
+      const [argsTyp, retTyp] = cls.funs.get(e.name);
+      if (argsTyp.length !== e.args.length) {
+        throw new Error(`Expected ${argsTyp.length} arguments; got ${e.args.length}`);
+      }
+      var newArgs = e.args.map((a, i) => {
+        let newa = tcExpr(a, variables, functions, classes);
+        // if (newa.a !== argsTyp[i]) {
+        if (!assignable(argsTyp[i], newa.a)) {
+          throw new TypeError(`Expected ${argsTyp[i]}; got type ${newa.a} in parameter ${i + 1}`);
+        }
+        return newa;
+      });
+      return { ...e, obj:newObj, args:newArgs, a: retTyp };
   }
+}
+
+function assignable(src: Type, tar: Type,): boolean {
+  /* 
+  if the type tar can be assigned to original type src 
+  */
+  if (src === tar) {
+    return true;
+  }
+  else if (isCls(src)) {
+    return tar === "none";
+  }
+  return false;
 }
 
 export function tcMemberExpr(e: MemberExpr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv): MemberExpr<Type> {
@@ -195,7 +234,7 @@ export function tcMemberExpr(e: MemberExpr<any>, variables: BodyEnv, functions: 
     throw new Error(`Invalid type annotation; there is no class named: ${obj.a}`);
   }
   if (!cls.vars.has(e.field)) {
-    throw new Error(`There is no attribute named ${e.field} in class ${obj.tag}`);
+    throw new Error(`There is no attribute named ${e.field} in class ${obj.a}`);
   }
   return { ...e, a: cls.vars.get(e.field), obj };
 }
@@ -219,13 +258,13 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
           else
             throw new ReferenceError(`Not a variable: ${s.target}`);
         }
-        else if (typ !== rhs.a) {
+        else if (!assignable(typ, rhs.a)) {
           throw new TypeError(`Expect type '${typ}'; got type '${rhs.a}'`);
         }
         return { ...s, value: rhs };
       } else if (s.target.tag === "getfield") {
         const target = tcMemberExpr(s.target, variables, functions, classes);
-        if (target.a !== rhs.a) {
+        if (!assignable(target.a, rhs.a)) {
           throw new TypeError(`Expect type '${target.a}'; got type '${rhs.a}'`);
         }
         return { ...s, target, value: rhs};
@@ -242,7 +281,7 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
     }
     case "return": {
       const valTyp = tcExpr(s.value, variables, functions, classes);
-      if (valTyp.a !== currentReturn) {
+      if (!assignable(currentReturn, valTyp.a)) {
         throw new TypeError(`${valTyp} returned but ${currentReturn} expected.`);
       }
       return { ...s, value: valTyp };
@@ -326,11 +365,20 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   // the class name must be unique, which is guaranteed in parser
   variables.addScope();
   functions.addScope();
+  variables.addDecl("self", c.name);
   const newFields = c.fields.map(v => tcVarDef(v, variables, classes));
-  const newMethods = c.methods.map(s => {
-    let method = tcFuncDef(s, variables, functions, classes);
-    return {...method, name: `${c.name}$${method.name}`}
+  classes.addDecl(c.name, {
+    vars: variables.getCurScope(), 
+    funs: undefined
   });
+  const newMethods = c.methods.map(s => tcFuncDef(s, variables, functions, classes));
+  newMethods.forEach(m => {
+    functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
+  }); // no redefinition error
+  // const newMethods = c.methods.map(s => {
+  //   let method = tcFuncDef(s, variables, functions, classes);
+  //   return {...method, name: `${c.name}$${method.name}`}
+  // });
   classes.addDecl(c.name, { 
     vars: variables.removeScope(), 
     funs: functions.removeScope()

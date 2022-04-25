@@ -105,7 +105,6 @@ export function traverseFunDef(t: TreeCursor, s: string, idSet: Set<any>): FunDe
   t.firstChild();  // Focus on def
   t.nextSibling(); // Focus on name of function
   var name = s.substring(t.from, t.to);
-  var pos: number = t.from;
   if (idSet.has(name)) {
     throw new Error(`Duplicate declaration of identifier ` +
       `in the same scope: ${name}`);
@@ -379,7 +378,8 @@ export function traverseParameters(t: TreeCursor, s: string, idSet: Set<any>): T
     let typ = traverseType(t, s);
     t.parent();
     t.nextSibling(); // Move on to comma or ")"
-    parameters.push({ name, typ });
+    if (name !== "self") // design decision
+      parameters.push({ name, typ });
     t.nextSibling(); // Focuses on a VariableName
   }
   t.parent();       // Pop to ParamList
@@ -409,16 +409,36 @@ export function traverseExpr(t: TreeCursor, s: string): Expr<any> {
     case "None":
       return { tag: "literal", value: traverseLit(t, s) };
     case "VariableName":
+    case "self":
+    case "PropertyName":
       return { tag: "id", name: s.substring(t.from, t.to) };
     case "CallExpression":
       t.firstChild(); // Focus name
-      var name = s.substring(t.from, t.to);
-      t.nextSibling(); // Focus ArgList
-      // t.firstChild(); // Focus open paren
-      var args = traverseArguments(t, s);
-      var result: Expr<any> = { tag: "call", name, args: args };
-      t.parent();
-      return result;
+      let node = t;
+      if (node.type.name === "VariableName") {
+        var name = s.substring(t.from, t.to);
+        t.nextSibling(); // Focus ArgList
+        // t.firstChild(); // Focus open paren
+        var args = traverseArguments(t, s);
+        var result: Expr<any> = { tag: "call", name, args };
+        t.parent();
+        return result;
+      }
+      else if (node.type.name === "MemberExpression") {
+        t.firstChild(); // VariableName
+        var obj = traverseExpr(t, s);
+        t.nextSibling(); // dot
+        t.nextSibling(); // PropertyName
+        var name = s.substring(t.from, t.to);
+        t.parent();
+        t.nextSibling(); // ArgList
+        var args = traverseArguments(t, s);
+        var result: Expr<any> = { tag: "method", obj, name, args };
+        t.parent();
+        return result;
+      }
+      break;
+
     case "BinaryExpression":
       t.firstChild(); // go to lhs
       const lhsExpr = traverseExpr(t, s);
@@ -478,7 +498,7 @@ export function traverseArguments(t: TreeCursor, s: string): Expr<any>[] {
   t.firstChild(); // Focuses on open paren
   while (t.nextSibling()) { // Focuses on a VariableName
     if (t.type.name === ")") { // maybe no args
-      break
+      break;
     }
     args.push(traverseExpr(t, s));
     t.nextSibling(); // Focuses on either "," or ")"
