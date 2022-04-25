@@ -170,7 +170,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
 
       // const [args, ret] = typ;
       if (args.length !== e.args.length) {
-        throw new Error(`Expected ${args.length} arguments; got ${e.args.length}`);
+        throw new Error(`RUNTIME ERROR: Expected ${args.length} arguments; got ${e.args.length}`);
       }
 
       var newArgs = args.map((a, i) => {
@@ -198,7 +198,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       // var newArgs = e.args.map(a => tcExpr(a, variables, functions, classes));
       const [argsTyp, retTyp] = cls.funs.get(e.name);
       if (argsTyp.length !== e.args.length) {
-        throw new Error(`Expected ${argsTyp.length} arguments; got ${e.args.length}`);
+        throw new Error(`RUNTIME ERROR: Expected ${argsTyp.length} arguments; got ${e.args.length}`);
       }
       var newArgs = e.args.map((a, i) => {
         let newa = tcExpr(a, variables, functions, classes);
