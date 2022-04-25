@@ -211,7 +211,6 @@ export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
     case "Body":  // function body
       let vardefs: VarDef<any>[] = [];
       let fundefs: FunDef<any>[] = [];
-      let stmts: Stmt<any>[] = [];
       t.firstChild(); //focus on semicolon
       // if (!t.nextSibling()) { //in case of empty program
       //   t.parent();
@@ -223,8 +222,11 @@ export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
         } else if (decl === "FunctionDefinition") {
           fundefs.push(traverseFunDef(t, s, idSet));
         } else {
-          throw new ParseError("Could not parse statement at " +
-            t.from + " " + t.to + ": " + s.substring(t.from, t.to));
+          if (t.type.name.search("Statement") != -1)
+            throw new ParseError("Could not parse statement at " +
+              t.from + " " + t.to + ": " + s.substring(t.from, t.to));
+          else 
+            break;
         }
       }
       t.parent();
