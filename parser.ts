@@ -1,5 +1,5 @@
-import { TreeCursor } from 'lezer';
-import { parser } from 'lezer-python';
+import { TreeCursor } from '@lezer/common';
+import { parser } from '@lezer/python';
 import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr } from './ast';
 import { FunDef, Program, Literal, LValue, ClsDef } from './ast';
 import { ParseError } from './error';
@@ -263,13 +263,11 @@ export function traverseStmt(t: TreeCursor, s: string): Stmt<any> {
   switch (t.type.name) {
     case "ReturnStatement":
       t.firstChild();  // Focus return keyword
-      t.nextSibling(); // Focus expression
-      var maybeRT = t;
       var value: Expr<any>;
-      if (maybeRT.type.name === "⚠")
-        value = { tag: "literal", value: { tag: "none" } };
-      else
+      if (t.nextSibling()) // Focus expression
         value = traverseExpr(t, s);
+      else
+        value = { tag: "literal", value: { tag: "none" } };
       t.parent();
       return { tag: "return", value };
     case "AssignStatement":
