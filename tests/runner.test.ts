@@ -221,7 +221,7 @@ describe('test control flow', () => {
             `);
             expect(true).to.equal(false);
         } catch (error) {
-            expect(error.message).to.equal("All path in this function/method " +
+            expect(error.message).to.equal("TYPE ERROR: All path in this function/method " +
                 "must have a return statement: f");
         }
 
@@ -235,7 +235,7 @@ describe('test control flow', () => {
             `);
             expect(true).to.equal(false);
         } catch (error) {
-            expect(error.message).to.equal("All path in this function/method " +
+            expect(error.message).to.equal("TYPE ERROR: All path in this function/method " +
                 "must have a return statement: f");
         }
     });

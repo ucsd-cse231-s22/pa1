@@ -170,7 +170,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
 
       // const [args, ret] = typ;
       if (args.length !== e.args.length) {
-        throw new Error(`RUNTIME ERROR: Expected ${args.length} arguments; got ${e.args.length}`);
+        throw new Error(`Expected ${args.length} arguments; got ${e.args.length}`);
       }
 
       var newArgs = args.map((a, i) => {
