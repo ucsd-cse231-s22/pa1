@@ -110,7 +110,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
           }
         case "==":
         case "!=":
-          if (nLHStyp === nRHStyp) {
+          if (nLHStyp === nRHStyp && !isCls(nLHS.a)) {
             return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
           }
           else {
