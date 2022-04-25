@@ -134,7 +134,9 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
     case "method":
       const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
       const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
-      return [...objStmt, ...argInstrs, 
+      return [...objStmt, 
+        `(call $ObjInit)`,
+        ...argInstrs, 
         `(call $${getTypeStr(expr.obj.a)}$${expr.name})`];
     }
 }
