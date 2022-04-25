@@ -3,10 +3,8 @@ The type checker uses an array of BodyEnv as different level of scopes,
 making it easier(?) to add keywords like global and nonlocal
 This idea is borrowed from my classmate, Shanbin Ke.
 */
-import { StringifyOptions } from "querystring";
-import { ObjectFlags } from "typescript";
-import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, isCls } from "./ast";
-
+import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, objType, isCls, getTypeStr } from "./ast";
+import { TypeError } from "./error"
 // type FunctionsEnv = Map<string, [Type[], Type]>;
 // type BodyEnv = Map<string, Type>;
 type FunctionsEnv = Env<[Type[], Type]>;
@@ -86,44 +84,47 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
     case "binop": {
       const nLHS = tcExpr(e.lhs, variables, functions, classes);
       const nRHS = tcExpr(e.rhs, variables, functions, classes);
+      const nLHStyp = getTypeStr(nLHS.a);
+      const nRHStyp = getTypeStr(nRHS.a);
       switch (e.op) {
         case "+":
         case "-":
         case "*":
         case "//":
         case "%":
-          if (nLHS.a === "int" && nRHS.a === "int") {
+          if (nLHStyp === "int" && nRHStyp === "int") {
             return { ...e, a: "int", lhs: nLHS, rhs: nRHS };
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`);
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`);
           }
         case ">":
         case "<":
         case ">=":
         case "<=":
-          if (nLHS.a === "int" && nRHS.a === "int") {
+          if (nLHStyp === "int" && nRHStyp === "int") {
             return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`);
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`);
           }
         case "==":
         case "!=":
-          if (nLHS.a === nRHS.a) {
+          if (nLHStyp === nRHStyp) {
             return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
           }
           else {
-            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`);
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`);
           }
         // case "and": return { ...e, a: "bool" };
         // case "or": return { ...e, a: "bool" };
         case "is":
           // TODO: "is" operation is not complete yet
-          if (nRHS.a != "none" || nLHS.a != "none") {
-            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHS.a}' and '${nRHS.a}'`)
+          if (!isCls(nLHS.a) && !assignable(nRHS.a, nLHS.a)) {
+            throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`)
           }
           return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
+
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
@@ -159,7 +160,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       }
       var [found, cls] = classes.lookUpVar(e.name);
       if (found) {
-        return { ...e, a: e.name };
+        return { ...e, a: {tag: "object", class: e.name} };
       }
       var [found, [args, ret]] = functions.lookUpVar(e.name, 0);
       if (!found) {
@@ -187,7 +188,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       if (newObj.a === "int" || newObj.a === "bool" || newObj.a === "none") {
         throw new Error(`There is no method named ${e.name} in class ${newObj.a}`);
       }
-      var [found, cls] = classes.lookUpVar(newObj.a);
+      var [found, cls] = classes.lookUpVar((newObj.a as objType).class);
       if (!found) {
         throw new Error("Should not happened");
       }
@@ -211,11 +212,13 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
   }
 }
 
-function assignable(src: Type, tar: Type,): boolean {
+function assignable(src: Type, tar: Type): boolean {
   /* 
   if the type tar can be assigned to original type src 
   */
-  if (src === tar) {
+  const s = getTypeStr(src);
+  const t = getTypeStr(tar);
+  if (s === t) {
     return true;
   }
   else if (isCls(src)) {
@@ -224,12 +227,14 @@ function assignable(src: Type, tar: Type,): boolean {
   return false;
 }
 
+
 export function tcMemberExpr(e: MemberExpr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv): MemberExpr<Type> {
   const obj = tcExpr(e.obj, variables, functions, classes);
   if (obj.a === "int" || obj.a === "bool" || obj.a === "none") {
     throw new Error(`There is no attribute named ${e.field} in class ${obj.a}`);
   }
-  const [found, cls] = classes.lookUpVar(obj.a);  
+  // TODO: check if object is initialized
+  const [found, cls] = classes.lookUpVar((obj.a as objType).class);  
   if (!found) {
     throw new Error(`Invalid type annotation; there is no class named: ${obj.a}`);
   }
@@ -258,14 +263,18 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
           else
             throw new ReferenceError(`Not a variable: ${s.target}`);
         }
-        else if (!assignable(typ, rhs.a)) {
-          throw new TypeError(`Expect type '${typ}'; got type '${rhs.a}'`);
+        if (!assignable(typ, rhs.a)) {
+          throw new TypeError(`Expect type '${getTypeStr(typ)}'; got type '${getTypeStr(rhs.a)}'`);
         }
+        if (isCls(typ)) {
+          // TODO: tag initialized for object
+        }
+
         return { ...s, value: rhs };
       } else if (s.target.tag === "getfield") {
         const target = tcMemberExpr(s.target, variables, functions, classes);
         if (!assignable(target.a, rhs.a)) {
-          throw new TypeError(`Expect type '${target.a}'; got type '${rhs.a}'`);
+          throw new TypeError(`Expect type '${getTypeStr(target.a)}'; got type '${getTypeStr(rhs.a)}'`);
         }
         return { ...s, target, value: rhs};
 
@@ -282,7 +291,7 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
     case "return": {
       const valTyp = tcExpr(s.value, variables, functions, classes);
       if (!assignable(currentReturn, valTyp.a)) {
-        throw new TypeError(`${valTyp} returned but ${currentReturn} expected.`);
+        throw new TypeError(`${getTypeStr(valTyp.a)} returned but ${getTypeStr(currentReturn)} expected.`);
       }
       return { ...s, value: valTyp };
     }
@@ -365,16 +374,17 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   // the class name must be unique, which is guaranteed in parser
   variables.addScope();
   functions.addScope();
-  variables.addDecl("self", c.name);
+  c.methods.forEach(m => {
+    functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
+  });
+  variables.addDecl("self", {tag:"object", class: c.name});
   const newFields = c.fields.map(v => tcVarDef(v, variables, classes));
   classes.addDecl(c.name, {
     vars: variables.getCurScope(), 
-    funs: undefined
+    funs: functions.getCurScope(),
   });
   const newMethods = c.methods.map(s => tcFuncDef(s, variables, functions, classes));
-  newMethods.forEach(m => {
-    functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
-  }); // no redefinition error
+  // no redefinition error
   // const newMethods = c.methods.map(s => {
   //   let method = tcFuncDef(s, variables, functions, classes);
   //   return {...method, name: `${c.name}$${method.name}`}
@@ -392,7 +402,7 @@ export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): Var
   const rhs = tcLit(s.init);
   // const [found, typ] = local.lookUpVar(s.typedvar.name, -1);
   local.addDecl(s.typedvar.name, s.typedvar.typ); // no redefinition error
-  if (s.typedvar.typ === "int" || s.typedvar.typ === "bool" || s.typedvar.typ === "none") {
+  if (!isCls(s.typedvar.typ)) {
     if (s.typedvar.typ !== rhs.a) {
       throw new TypeError(`Expect type '${s.typedvar.typ}'; ` +
         `got type '${rhs.a}'`);
@@ -400,7 +410,7 @@ export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): Var
   } 
   else {
     const clsName = s.typedvar.typ;
-    const [found] = classes.lookUpVar(clsName);
+    const [found] = classes.lookUpVar((clsName as objType).class);
     if (!found) {
       throw new Error(`Invalid type annotation; ` + 
         `there is no class named: ${clsName}`);

@@ -16,12 +16,12 @@ export type TypedVar =
 export type ClsDef<A> = 
   { tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[], indexOfField?: Map<string, number> }
 
-
+export type objType = { tag: "object", class: string }
 export type Type =
   | "int"
   | "bool"
   | "none"
-  | string
+  | objType
 
 export type Literal<A> = 
   | { a?: A, tag: "number", value: number }
@@ -78,4 +78,12 @@ export function isUnOp(maybeOp: string): maybeOp is UnOp {
 
 export function isCls(maybeCls: Type): maybeCls is Type {
   return (maybeCls !== "int") && (maybeCls !== "bool") && (maybeCls !== "none")
+}
+
+
+export function getTypeStr(typ: Type): string {
+  if (typeof typ === "string")
+    return typ;
+  else
+    return (typ as objType).class
 }

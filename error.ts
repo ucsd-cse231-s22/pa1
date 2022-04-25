@@ -11,3 +11,11 @@ export class ReferenceError extends Error {
         this.name = "ReferenceError";
     }
 }
+
+export class TypeError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "TypeError";
+        this.message = "TYPE ERROR: " + this.message;
+    }
+}

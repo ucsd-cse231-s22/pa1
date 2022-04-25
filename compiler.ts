@@ -1,6 +1,6 @@
 import { env } from 'process';
 import wabt from 'wabt';
-import { BinOp, ClsDef, CondBody, Expr, FuncBody, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef } from "./ast";
+import { BinOp, ClsDef, CondBody, Expr, FuncBody, FunDef, Literal, MemberExpr, objType, Program, Stmt, Type, VarDef, getTypeStr } from "./ast";
 import { parseProgram } from './parser';
 import { tcProgram } from './tc';
 
@@ -136,13 +136,13 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
       const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
       return [...objStmt, ...argInstrs, 
-      `(call $${expr.obj.a}$${expr.name})`];
+        `(call $${getTypeStr(expr.obj.a)}$${expr.name})`];
     }
 }
 
 export function codeGenMemberExpr(expr: MemberExpr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
-  const cls = clsEnv.get(expr.obj.a);
+  const cls = clsEnv.get((expr.obj.a as objType).class);
   objStmt.push(`(i32.add (i32.const ${cls.indexOfField.get(expr.field) * 4}))`);
   return objStmt;
 }
@@ -299,6 +299,7 @@ export function compile(source: string): string {
   const [vars, funs, classes, stmts] = varsFunsStmts(ast);
   classes.map(c => clsEnv.set(c.name, c));
   const clsCode: string[] = classes.map(c => codeGenCls(c, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
+  const allCls = clsCode.join("\n\n");
   const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
   const varDecls = vars.map(v => `(global $${v} (mut i32) (i32.const 0))`).join("\n");
@@ -324,7 +325,7 @@ export function compile(source: string): string {
   (global $heap (mut i32) (i32.const 4))
   ${varDecls}
   ${allFuns}
-  ${clsCode}
+  ${allCls}
   
   (func (export "_start") ${retType}
     ${main}
