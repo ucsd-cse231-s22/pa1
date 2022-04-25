@@ -2,7 +2,7 @@ import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
 import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr } from './ast';
 import { FunDef, Program, Literal, LValue, ClsDef } from './ast';
-import { ParseError } from './error';
+import { ParseError, TypeError } from './error';
 
 function isDecl(t: TreeCursor, s: string) {
   if (t.type.name === "FunctionDefinition" || t.type.name === "ClassDefinition") {
