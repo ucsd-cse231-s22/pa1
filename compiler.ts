@@ -1,5 +1,5 @@
 import wabt from 'wabt';
-import { BinOp, ClsDef, CondBody, Expr, FuncBody, FunDef, Literal, MemberExpr, objType, Program, Stmt, Type, VarDef, getTypeStr } from "./ast";
+import { BinOp, ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, getTypeStr } from "./ast";
 import { parseProgram } from './parser';
 import { tcProgram } from './tc';
 

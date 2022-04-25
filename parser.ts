@@ -2,7 +2,7 @@ import { TreeCursor } from 'lezer';
 import { parser } from 'lezer-python';
 import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr } from './ast';
 import { FunDef, Program, Literal, LValue, ClsDef } from './ast';
-import { ParseError, TypeError } from './error';
+import { ParseError } from './error';
 
 function isDecl(t: TreeCursor, s: string) {
   if (t.type.name === "FunctionDefinition" || t.type.name === "ClassDefinition") {
@@ -197,7 +197,8 @@ export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
       do {
         // if (isVarDecl(c, s) || isFunDef(c, s) || isClassDecl(t, s))
         //   throw new Error("PARSER ERROR: variable and function declaration must come before the body");
-        stmts.push(traverseStmt(t, s));
+        if (t.type.name.search("Statement") != -1)
+          stmts.push(traverseStmt(t, s));
       } while (t.nextSibling())
       t.parent();
       return [vardefs, fundefs, stmts];
@@ -222,7 +223,7 @@ export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
         } else if (decl === "FunctionDefinition") {
           fundefs.push(traverseFunDef(t, s, idSet));
         } else {
-          throw new TypeError("Could not parse statement at " +
+          throw new ParseError("Could not parse statement at " +
             t.from + " " + t.to + ": " + s.substring(t.from, t.to));
         }
       }
@@ -241,7 +242,8 @@ export function traverseStmts(t: TreeCursor, s: string): Stmt<any>[] {
       t.firstChild(); // focus on semicolon
       t.nextSibling();
       do {
-        stmts.push(traverseStmt(t, s));
+        if (t.type.name.search("Statement") != -1)
+          stmts.push(traverseStmt(t, s));
       } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
       //  the end of the list of children
       t.parent();
@@ -312,7 +314,7 @@ export function traverseStmt(t: TreeCursor, s: string): Stmt<any> {
       t.parent();
       return { tag: "while", whilestmt };
     default:
-      throw new TypeError("Could not parse statement at " +
+      throw new ParseError("Could not parse statement at " +
         t.from + " " + t.to + ": " + s.substring(t.from, t.to));
   }
 }
