@@ -341,7 +341,7 @@ export function returnable(stmt: Stmt<Type>): boolean {
 export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv) {
   // const bodyvars = new Map<string, Type>(variables.entries());
   if (f.ret !== "none" && !f.body.stmts.some(returnable)) {
-    throw new Error(`All path in this function/method ` +
+    throw new TypeError(`All path in this function/method ` +
       `must have a return statement: ${f.name}`);
   }
   // let bodyvars = new Map<string, Type>();
