@@ -24,7 +24,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       print_none: (arg: any) => {
         display("None");
         // return arg;
-      }
+      },
+      ObjInit: (arg: any) => {
+        if (arg === 0)
+          throw new Error("RUNTIME ERROR: object not intialized");
+        return arg;
+      },
+      abs: Math.abs,
+      min: Math.min,
+      max: Math.max,
+      pow: Math.pow,
     },
   };
   const runButton = document.getElementById("run");

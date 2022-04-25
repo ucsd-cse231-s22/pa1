@@ -1,4 +1,3 @@
-import { env } from 'process';
 import wabt from 'wabt';
 import { BinOp, ClsDef, CondBody, Expr, FuncBody, FunDef, Literal, MemberExpr, objType, Program, Stmt, Type, VarDef, getTypeStr } from "./ast";
 import { parseProgram } from './parser';
@@ -142,8 +141,12 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
 
 export function codeGenMemberExpr(expr: MemberExpr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
-  const cls = clsEnv.get((expr.obj.a as objType).class);
-  objStmt.push(`(i32.add (i32.const ${cls.indexOfField.get(expr.field) * 4}))`);
+  const cls = clsEnv.get(getTypeStr(expr.obj.a));
+  
+  objStmt.push(
+    `(call $ObjInit)`,
+    `(i32.add (i32.const ${cls.indexOfField.get(expr.field) * 4}))`
+  );
   return objStmt;
 }
 
@@ -322,6 +325,11 @@ export function compile(source: string): string {
   (func $print_num (import "imports" "print_num") (param i32) (result i32))
   (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
   (func $print_none (import "imports" "print_none") (param i32) (result i32))
+  (func $ObjInit (import "imports" "ObjInit") (param i32) (result i32))
+  (func $abs(import "imports" "abs") (param i32) (result i32))
+  (func $min(import "imports" "min") (param i32) (param i32) (result i32))
+  (func $max(import "imports" "max") (param i32) (param i32) (result i32))
+  (func $pow(import "imports" "pow") (param i32) (param i32) (result i32))
   (global $heap (mut i32) (i32.const 4))
   ${varDecls}
   ${allFuns}
@@ -334,3 +342,4 @@ export function compile(source: string): string {
 ) 
   `;
 }
+

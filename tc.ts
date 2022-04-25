@@ -175,8 +175,8 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
 
       var newArgs = args.map((a, i) => {
         const argtyp = tcExpr(e.args[i], variables, functions, classes);
-        if (a !== argtyp.a) {
-          throw new TypeError(`Expected ${a}; got type ${argtyp} in parameter ${i + 1}`);
+        if (!assignable(a, argtyp.a)) {
+          throw new TypeError(`Expected ${getTypeStr(a)}; got type ${getTypeStr(argtyp.a)} in parameter ${i + 1}`);
         }
         return argtyp;
       });

@@ -19,7 +19,19 @@ export function typeCheck(source: string) : Type {
 // within another function in your compiler, for example if you need other
 // JavaScript-side helpers
 export async function run(source: string) {
-  return Run(compile(source), importObject);
+  let newImportObject = {
+    ...importObject,
+    imports : {
+      ...importObject.imports,
+      ObjInit: (arg: any) => {
+        if (arg === 0) {
+          throw new Error("RUNTIME ERROR: object not intialized");
+        }
+        return arg;
+      }
+    }
+  };
+  return Run(compile(source), newImportObject);
 }
 
 type Type =
