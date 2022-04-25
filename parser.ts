@@ -312,7 +312,7 @@ export function traverseStmt(t: TreeCursor, s: string): Stmt<any> {
       t.parent();
       return { tag: "while", whilestmt };
     default:
-      throw new ParseError("Could not parse statement at " +
+      throw new TypeError("Could not parse statement at " +
         t.from + " " + t.to + ": " + s.substring(t.from, t.to));
   }
 }
