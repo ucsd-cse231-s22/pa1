@@ -250,16 +250,17 @@ function assignable(src: Type, tar: Type): boolean {
 
 export function tcMemberExpr(e: MemberExpr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv): MemberExpr<Type> {
   const obj = tcExpr(e.obj, variables, functions, classes);
+  const typStr = getTypeStr(obj.a);
   if (!isCls(obj.a)) {
-    throw new Error(`There is no attribute named ${e.field} in class ${obj.a}`);
+    throw new Error(`There is no attribute named ${e.field} in class ${typStr}`);
   }
   // TODO: check if object is initialized
   const [found, cls] = classes.lookUpVar(getTypeStr(obj.a));
   if (!found) {
-    throw new Error(`Invalid type annotation; there is no class named: ${obj.a}`);
+    throw new Error(`Invalid type annotation; there is no class named: ${typStr}`);
   }
   if (!cls.vars.has(e.field)) {
-    throw new Error(`There is no attribute named ${e.field} in class ${obj.a}`);
+    throw new Error(`There is no attribute named ${e.field} in class ${typStr}`);
   }
   return { ...e, a: cls.vars.get(e.field), obj };
 }
