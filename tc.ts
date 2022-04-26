@@ -405,10 +405,10 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   variables.addScope();
   functions.addScope();
   c.methods.forEach(m => {
-    if (m.params.length < 1 || m.params[0].name !== "self") {
-      throw new TypeError(`First parameter of the following method ` + 
-      `must be of the enclosing class: ${c.name}`);
-    }
+    // if (m.params.length < 1 || m.params[0].name !== "self") {
+    //   throw new TypeError(`First parameter of the following method ` + 
+    //   `must be of the enclosing class: ${c.name}`);
+    // }
     m.params.shift(); // delete the self arg
     functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
   });
