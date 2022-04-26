@@ -1,6 +1,6 @@
 import { TreeCursor } from '@lezer/common';
 import { parser } from '@lezer/python';
-import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr } from './ast';
+import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr, isCls } from './ast';
 import { FunDef, Program, Literal, LValue, ClsDef } from './ast';
 import { ParseError } from './error';
 

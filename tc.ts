@@ -3,7 +3,7 @@ The type checker uses an array of BodyEnv as different level of scopes,
 making it easier(?) to add keywords like global and nonlocal
 This idea is borrowed from my classmate, Shanbin Ke.
 */
-import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, objType, isCls, getTypeStr } from "./ast";
+import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, ObjType, isCls, getTypeStr } from "./ast";
 import { TypeError } from "./error"
 // type FunctionsEnv = Map<string, [Type[], Type]>;
 // type BodyEnv = Map<string, Type>;
@@ -120,7 +120,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         // case "or": return { ...e, a: "bool" };
         case "is":
           // TODO: "is" operation is not complete yet
-          if (!isCls(nLHS.a) || !isCls(nRHS.a)) {
+          if ((!isCls(nLHS.a) && nLHS.a != "none") || (!isCls(nRHS.a) && nRHS.a !== "none")) {
             throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`)
           }
           return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
@@ -130,17 +130,18 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
     }
     case "unop": {
       const nExpr = tcExpr(e.expr, variables, functions, classes);
+      const typstr = getTypeStr(nExpr.a);
       switch (e.op) {
         case "-":
-          if (nExpr.a === "int")
+          if (typstr === "int")
             return { ...e, a: "int", expr: nExpr };
           else
-            throw new TypeError(`Cannot apply operator '${e.op}' on type '${nExpr.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on type '${typstr}'`);
         case "not":
-          if (nExpr.a === "bool")
+          if (typstr === "bool")
             return { ...e, a: "bool", expr: nExpr };
           else
-            throw new TypeError(`Cannot apply operator '${e.op}' on type '${nExpr.a}'`)
+            throw new TypeError(`Cannot apply operator '${e.op}' on type '${typstr}'`);
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
     }
@@ -160,6 +161,11 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       }
       var [found, cls] = classes.lookUpVar(e.name);
       if (found) {
+        // TODO: do for init 
+        
+
+
+
         return { ...e, a: {tag: "object", class: e.name} };
       }
       var [found, [args, ret]] = functions.lookUpVar(e.name, 0);
@@ -185,10 +191,10 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       return tcMemberExpr(e, variables, functions, classes);
     case "method":
       const newObj = tcExpr(e.obj, variables, functions, classes);
-      if (newObj.a === "int" || newObj.a === "bool" || newObj.a === "none") {
+      if (!isCls(newObj.a)) {
         throw new Error(`There is no method named ${e.name} in class ${newObj.a}`);
       }
-      var [found, cls] = classes.lookUpVar((newObj.a as objType).class);
+      var [found, cls] = classes.lookUpVar(getTypeStr(newObj.a)); // (newObj.a as ObjType).class
       if (!found) {
         throw new Error("Should not happened");
       }
@@ -230,11 +236,11 @@ function assignable(src: Type, tar: Type): boolean {
 
 export function tcMemberExpr(e: MemberExpr<any>, variables: BodyEnv, functions: FunctionsEnv, classes: ClassEnv): MemberExpr<Type> {
   const obj = tcExpr(e.obj, variables, functions, classes);
-  if (obj.a === "int" || obj.a === "bool" || obj.a === "none") {
+  if (!isCls(obj.a)) {
     throw new Error(`There is no attribute named ${e.field} in class ${obj.a}`);
   }
   // TODO: check if object is initialized
-  const [found, cls] = classes.lookUpVar((obj.a as objType).class);  
+  const [found, cls] = classes.lookUpVar(getTypeStr(obj.a));
   if (!found) {
     throw new Error(`Invalid type annotation; there is no class named: ${obj.a}`);
   }
@@ -410,7 +416,7 @@ export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): Var
   } 
   else {
     const clsName = s.typedvar.typ;
-    const [found] = classes.lookUpVar((clsName as objType).class);
+    const [found] = classes.lookUpVar((clsName as ObjType).class);
     if (!found) {
       throw new Error(`Invalid type annotation; ` + 
         `there is no class named: ${clsName}`);
