@@ -123,13 +123,14 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
         });
         initstmts.push(
           `(global.get $heap) ;; return value of the object`, 
+          `(global.get $heap) ;; for the param for __init__`, 
           `(global.get $heap)`,
           `(i32.add (i32.const ${clsdef.fields.length * 4}))`,
           `(global.set $heap)`,
         );
         var initfunc = clsdef.builtins.get("__init__");
         toCall = initfunc.name;
-        valStmts.push(`(call $${clsdef.name}$${toCall})`);
+        valStmts.push(`(call $${clsdef.name}$${toCall})`, `(local.set $scratch)`);
         return [...initstmts, ...valStmts];
       }
       if (expr.name === "print") {
@@ -285,6 +286,9 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   const varAssign = f.body.vardefs.map(v => codeGenVars(v, withParamsAndVariables, indent + 1)).join("\n");
 
   const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables, clsEnv, indent + 1)).flat();
+  // if (methodName && methodName.search("__init__") !== -1) {
+  //   stmts.
+  // }
   const stmtsBody = stmts.join("\n");
   const fname = methodName ? methodName : f.name;
   return [`(func $${fname} ${params} (result i32)`,

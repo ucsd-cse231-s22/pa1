@@ -175,7 +175,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
             }
             return argtyp;
           });
-          return { ...e, a: ret, args: newArgs };
+          return { ...e, a: { tag: "object", class: e.name }, args: newArgs };
         } else {
           return { ...e, a: { tag: "object", class: e.name } };
         }
@@ -390,17 +390,11 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   if (!found) {
     throw new Error(`Super class not defined: ${c.super}`)
   }
-  if (c.builtins.has("__init__")) {
-    var func = c.builtins.get("__init__");
-    func.body.stmts.push({ tag: "return", value: { tag: "id", name: "self" } });
-    func.ret = { tag: "object", class: c.name };
-    c.builtins.set("__init__", func);
-  } else {
+  if (!c.builtins.has("__init__")) {
     c.builtins.set("__init__", {
-      name: "__init__", ret: { tag: "object", class: c.name }, params:[],
-      body: {
-        vardefs: [], stmts: [{ tag: "return", value: {tag: "id", name:"self"} }]
-      }
+      name: "__init__", ret: "none", params: [], 
+      // params: [{ name: "self", typ: { tag: "object", class: c.name }}],
+      body: { vardefs: [], stmts: [{ tag: "pass" }] }
     });
   }
   // the class name must be unique, which is guaranteed in parser
