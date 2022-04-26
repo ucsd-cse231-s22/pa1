@@ -408,7 +408,7 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   functions.addScope();
   c.methods.forEach(m => {
     if (m.params.length < 1 || m.params[0].name !== "self") {
-      throw new TypeError(`First parameter of the following method ` + 
+      throw new Error(`First parameter of the following method ` + 
       `must be of the enclosing class: ${c.name}`);
     }
     m.params.shift(); // delete the self arg
@@ -416,7 +416,7 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   });
   c.builtins.forEach((func, name) => {
     if (func.params.length < 1 || func.params[0].name !== "self") {
-      throw new TypeError(`First parameter of the following method ` +
+      throw new Error(`First parameter of the following method ` +
         `must be of the enclosing class: ${c.name}`);
     }
     if (func.name === "__init__" && func.params.length > 1) {
