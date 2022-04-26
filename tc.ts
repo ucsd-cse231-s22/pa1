@@ -204,15 +204,16 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       return tcMemberExpr(e, variables, functions, classes);
     case "method":
       const newObj = tcExpr(e.obj, variables, functions, classes);
+      const typStr = getTypeStr(newObj.a);
       if (!isCls(newObj.a)) {
-        throw new Error(`There is no method named ${e.name} in class ${newObj.a}`);
+        throw new Error(`There is no method named ${e.name} in class ${typStr}`);
       }
-      var [found, cls] = classes.lookUpVar(getTypeStr(newObj.a)); // (newObj.a as ObjType).class
+      var [found, cls] = classes.lookUpVar(typStr); // (newObj.a as ObjType).class
       if (!found) {
         throw new Error("Should not happened");
       }
       if (!cls.funs.has(e.name)) {
-        throw new Error(`There is no method named ${e.name} in class ${newObj.a}`);
+        throw new Error(`There is no method named ${e.name} in class ${typStr}`);
       }
       // var newArgs = e.args.map(a => tcExpr(a, variables, functions, classes));
       const [argsTyp, retTyp] = cls.funs.get(e.name);
@@ -405,10 +406,10 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   variables.addScope();
   functions.addScope();
   c.methods.forEach(m => {
-    // if (m.params.length < 1 || m.params[0].name !== "self") {
-    //   throw new TypeError(`First parameter of the following method ` + 
-    //   `must be of the enclosing class: ${c.name}`);
-    // }
+    if (m.params.length < 1 || m.params[0].name !== "self") {
+      throw new TypeError(`First parameter of the following method ` + 
+      `must be of the enclosing class: ${c.name}`);
+    }
     m.params.shift(); // delete the self arg
     functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
   });
