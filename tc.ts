@@ -392,8 +392,8 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   }
   if (!c.builtins.has("__init__")) {
     c.builtins.set("__init__", {
-      name: "__init__", ret: "none", params: [], 
-      // params: [{ name: "self", typ: { tag: "object", class: c.name }}],
+      name: "__init__", ret: "none",
+      params: [{ name: "self", typ: { tag: "object", class: c.name }}],
       body: { vardefs: [], stmts: [{ tag: "pass" }] }
     });
   }
@@ -401,9 +401,19 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   variables.addScope();
   functions.addScope();
   c.methods.forEach(m => {
+    if (m.params.length < 1 || m.params[0].name !== "self") {
+      throw new Error(`First parameter of the following method ` + 
+      `must be of the enclosing class: ${c.name}`);
+    }
+    m.params.shift(); // delete the self arg
     functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
   });
   c.builtins.forEach((func, name) => {
+    if (func.params.length < 1 || func.params[0].name !== "self") {
+      throw new Error(`First parameter of the following method ` +
+        `must be of the enclosing class: ${c.name}`);
+    }
+    func.params.shift(); // delete the self arg
     functions.addDecl(name, [func.params.map(p => p.typ), func.ret]);
   })
   variables.addDecl("self", {tag:"object", class: c.name});

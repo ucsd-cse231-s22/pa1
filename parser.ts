@@ -387,8 +387,7 @@ export function traverseParameters(t: TreeCursor, s: string, idSet: Set<any>): T
     let typ = traverseType(t, s);
     t.parent();
     t.nextSibling(); // Move on to comma or ")"
-    if (name !== "self") // design decision
-      parameters.push({ name, typ });
+    parameters.push({ name, typ });
     t.nextSibling(); // Focuses on a VariableName
   }
   t.parent();       // Pop to ParamList
