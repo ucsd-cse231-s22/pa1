@@ -384,19 +384,23 @@ export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, functions: Functio
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
 }
 
+export function completeClsBuiltin(c: ClsDef<any>) {
+  if (!c.builtins.has("__init__")) {
+    c.builtins.set("__init__", {
+      name: "__init__", ret: "none",
+      params: [{ name: "self", typ: { tag: "object", class: c.name } }],
+      body: { vardefs: [], stmts: [{ tag: "pass" }] }
+    });
+  }
+}
+
 export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   functions: FunctionsEnv, classes: ClassEnv): ClsDef<Type> {
   const [found] = classes.lookUpVar(c.super);
   if (!found) {
     throw new Error(`Super class not defined: ${c.super}`)
   }
-  if (!c.builtins.has("__init__")) {
-    c.builtins.set("__init__", {
-      name: "__init__", ret: "none",
-      params: [{ name: "self", typ: { tag: "object", class: c.name }}],
-      body: { vardefs: [], stmts: [{ tag: "pass" }] }
-    });
-  }
+  completeClsBuiltin(c);
   // the class name must be unique, which is guaranteed in parser
   variables.addScope();
   functions.addScope();
@@ -412,6 +416,9 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
     if (func.params.length < 1 || func.params[0].name !== "self") {
       throw new Error(`First parameter of the following method ` +
         `must be of the enclosing class: ${c.name}`);
+    }
+    if (func.name === "__init__" && func.params.length > 1) {
+      throw new Error(`__init__ method does not accept arguments`);
     }
     func.params.shift(); // delete the self arg
     functions.addDecl(name, [func.params.map(p => p.typ), func.ret]);
