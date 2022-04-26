@@ -219,16 +219,21 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
     case "pass":
       return [];
     case "if":
-      const ifcondbody = codeGenCondBody(stmt.ifstmt, locals, clsEnv, indent);
+      const ifcondbody = codeGenCondBody(stmt.ifstmt, locals, clsEnv, indent).flat();
       const elifcondbody = stmt.elifstmt.map(p => codeGenCondBody(p, locals, clsEnv, indent + 2, "elif")).flat();
       const elsestmt = stmt.elsestmt.map(p => codeGenStmt(p, locals, clsEnv, indent + 2)).flat();
       // console.log([...ifcondbody, `(else`, ...elifcondbody, ...elsestmt, `br 0`, `)`]);
+      if (elifcondbody.length !== 0 || elsestmt.length !== 0) 
+        return [
+          ...ifcondbody,
+          addIndent(`(else`, indent + 1),
+          ...elifcondbody,
+          ...elsestmt,
+          // addIndent(`(br 0)`, indent + 2),
+          addIndent(`)`, indent + 1),
+          addIndent(`)`, indent)
+        ];
       return [...ifcondbody,
-        addIndent(`(else`, indent + 1),
-        ...elifcondbody,
-        ...elsestmt,
-        addIndent(`(br 0)`, indent + 2),
-        addIndent(`)`, indent + 1),
         addIndent(`)`, indent)
       ];
     case "while":
@@ -243,8 +248,8 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
         // ...body, 
         // addIndent(`(br 1))`, indent + 4),
         ...whilecondbody,
-        addIndent(`(else`, indent + 3),
-        addIndent(`(br 2))`, indent + 4),
+        // addIndent(`(else`, indent + 3),
+        // addIndent(`(br 2))`, indent + 4),
         addIndent(`)))`, indent)];
   }
 }
@@ -307,7 +312,8 @@ export function compile(source: string): string {
   const allCls = clsCode.join("\n\n");
   const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
-  const varDecls = vars.map(v => `(global $${v} (mut i32) (i32.const 0))`).join("\n");
+  const varDecls = vars.map(v => addIndent(`(global $${v} (mut i32) (i32.const 0))`, basicIndent));
+  const varCode = [`(global $heap (mut i32) (i32.const 4))`, ...varDecls].join("\n");
   const varAssign = ast.vardefs.map(v => codeGenVars(v, emptyEnv, basicIndent + 1));
   const allStmts = stmts.map(s => codeGenStmt(s, emptyEnv, clsEnv, basicIndent + 1)).flat();
 
@@ -332,8 +338,7 @@ export function compile(source: string): string {
   (func $min(import "imports" "min") (param i32) (param i32) (result i32))
   (func $max(import "imports" "max") (param i32) (param i32) (result i32))
   (func $pow(import "imports" "pow") (param i32) (param i32) (result i32))
-  (global $heap (mut i32) (i32.const 4))
-  ${varDecls}
+  ${varCode}
   ${allFuns}
   ${allCls}
   
