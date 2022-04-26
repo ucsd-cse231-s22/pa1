@@ -420,7 +420,7 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
         `must be of the enclosing class: ${c.name}`);
     }
     if (func.name === "__init__" && func.params.length > 1) {
-      throw new Error(`__init__ method does not accept arguments`);
+      throw new TypeError(`__init__ method does not accept arguments`);
     }
     func.params.shift(); // delete the self arg
     functions.addDecl(name, [func.params.map(p => p.typ), func.ret]);
