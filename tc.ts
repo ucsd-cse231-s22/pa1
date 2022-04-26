@@ -120,7 +120,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         // case "or": return { ...e, a: "bool" };
         case "is":
           // TODO: "is" operation is not complete yet
-          if (!isCls(nLHS.a) && !assignable(nRHS.a, nLHS.a)) {
+          if (!isCls(nLHS.a) || !isCls(nRHS.a)) {
             throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`)
           }
           return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
