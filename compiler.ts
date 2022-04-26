@@ -73,6 +73,17 @@ export function codeGenLit(lit: Literal<Type>): Array<string> {
   }
 }
 
+export function getInitFunc(cls: ClsDef<Type>): FunDef<Type> {
+  let i = 0;
+  let len = cls.methods.length;
+  for (i ; i < len; i ++) {
+    if (cls.methods[i].name === "__init__") {
+      return cls.methods[i];
+    }
+  }
+  return undefined;
+}
+
 export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   switch (expr.tag) {
     case "literal":
@@ -97,26 +108,33 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
         //   throw new Error(`Unhandled or unknown op: ${expr.op}`);
       }
     case "call":
-      const valStmts = expr.args.map(e => codeGenExpr(e, locals, clsEnv)).flat();
+      var valStmts = expr.args.map(e => codeGenExpr(e, locals, clsEnv)).flat();
       let toCall = expr.name;
-      if (clsEnv.has(expr.name)) {
+      if (clsEnv.has(expr.name)) { // this is an object constructor
+        const initstmts: Array<string> = [];
         const clsdef = clsEnv.get(expr.name);
-        let fieldstmts: Array<string> = [];
         clsdef.fields.map((f, i) => {
-          fieldstmts.push(
+          initstmts.push(
             `(global.get $heap)`,
             `(i32.add (i32.const ${4 * i}))`,
             codeGenLit(f.init)[0],
             `(i32.store)`
           );
-        })
-        fieldstmts.push(
+        });
+        initstmts.push(
           `(global.get $heap) ;; return value of the object`, 
           `(global.get $heap)`,
           `(i32.add (i32.const ${clsdef.fields.length * 4}))`,
           `(global.set $heap)`,
         );
-        return fieldstmts;
+        var initfunc = getInitFunc(clsdef);
+        if (initfunc) {
+          toCall = initfunc.name;
+          valStmts.push(`(call $${clsdef.name}$${toCall})`);
+          return [...initstmts, ...valStmts];
+        } else {
+          return initstmts;
+        }
       }
       if (expr.name === "print") {
         switch (expr.args[0].a) {
@@ -128,7 +146,7 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       valStmts.push(`(call $${toCall})`);
       return valStmts;
     case "getfield":
-      const fieldStmts = codeGenMemberExpr(expr, locals, clsEnv);
+      var fieldStmts = codeGenMemberExpr(expr, locals, clsEnv);
       fieldStmts.push(`(i32.load)`);
       return fieldStmts;
     case "method":
@@ -254,7 +272,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
   }
 }
 
-export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number, isMethod: boolean = false): Array<string> {
+export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number, methodName: string = null): Array<string> {
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
 
   // Construct the environment for the function body
@@ -264,7 +282,7 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
 
   // Construct the code for params and variable declarations in the body
   let params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
-  if (isMethod) {
+  if (methodName) {
     params = `(param $self i32) ` + params;
   }
   const varDecls = variables.map(v => `(local $${v} i32)`).map(v => addIndent(v, indent + 1)).join("\n");
@@ -272,7 +290,8 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
 
   const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables, clsEnv, indent + 1)).flat();
   const stmtsBody = stmts.join("\n");
-  return [`(func $${f.name} ${params} (result i32)`,
+  const fname = methodName ? methodName : f.name;
+  return [`(func $${fname} ${params} (result i32)`,
   addIndent(`(local $scratch i32)`, indent + 1),
   varDecls,
   varAssign,
@@ -292,10 +311,8 @@ export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): strin
 
 export function codeGenCls(c: ClsDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number): Array<string> {
   locals.set("self", true);
-  const methods = c.methods.map(m => {
-    m.name = `${c.name}$${m.name}`;
-    return codeGenFun(m, locals, clsEnv, indent, true);
-  }).flat();
+  const methods = c.methods.map(m => 
+    codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)).flat();
   locals.delete("self");
   return methods;
 }

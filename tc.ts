@@ -161,12 +161,25 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       }
       var [found, cls] = classes.lookUpVar(e.name);
       if (found) {
-        // TODO: do for init 
-        
+        // TODO: do for init
+        if (cls.funs.has("__init__")) {
+          var [args, ret] = cls.funs.get("__init__");
+          if (args.length !== e.args.length) {
+            throw new Error(`Expected ${args.length} arguments; got ${e.args.length}`);
+          }
 
-
-
-        return { ...e, a: {tag: "object", class: e.name} };
+          var newArgs = args.map((a, i) => {
+            const argtyp = tcExpr(e.args[i], variables, functions, classes);
+            if (!assignable(a, argtyp.a)) {
+              throw new TypeError(`Expected ${getTypeStr(a)}; got type ${getTypeStr(argtyp.a)} in parameter ${i + 1}`);
+            }
+            return argtyp;
+          });
+          return { ...e, a: ret, args: newArgs };
+        } else {
+          return { ...e, a: { tag: "object", class: e.name } };
+        }
+        // return { ...e, a: { tag: "object", class: e.name } };
       }
       var [found, [args, ret]] = functions.lookUpVar(e.name, 0);
       if (!found) {
@@ -389,7 +402,13 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
     vars: variables.getCurScope(), 
     funs: functions.getCurScope(),
   });
-  const newMethods = c.methods.map(s => tcFuncDef(s, variables, functions, classes));
+  const newMethods = c.methods.map(m => {
+    if (m.name === "__init__") { // TODO : init here or in parser
+      m.body.stmts.push({ tag: "return", value: { tag: "id", name: "self" } });
+      m.ret = { tag: "object", class: c.name };
+    }
+    return tcFuncDef(m, variables, functions, classes)
+  });
   // no redefinition error
   // const newMethods = c.methods.map(s => {
   //   let method = tcFuncDef(s, variables, functions, classes);
