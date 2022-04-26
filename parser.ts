@@ -157,11 +157,12 @@ export function traverseClsDef(t: TreeCursor, s: string, idSet: Set<any>): ClsDe
   t.nextSibling(); // focus on body
   var fields: VarDef<any>[];
   var methods: FunDef<any>[];
-  [fields, methods] = traverseClsBody(t, s, curIdSet);
+  var builtins: Map<string, FunDef<any>>;
+  [fields, methods, builtins] = traverseClsBody(t, s, curIdSet);
   t.parent();
   return {
     tag: "class", name, super: superName, 
-    methods, fields
+    methods, fields, builtins
   };
 }
 
@@ -206,11 +207,12 @@ export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
 }
 
 export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
-  [VarDef<any>[], FunDef<any>[]] {
+  [VarDef<any>[], FunDef<any>[], Map<string, FunDef<any>>] {
   switch (t.node.type.name) {
     case "Body":  // function body
       let vardefs: VarDef<any>[] = [];
       let fundefs: FunDef<any>[] = [];
+      let builtins = new Map<string, FunDef<any>>();
       t.firstChild(); //focus on semicolon
       // if (!t.nextSibling()) { //in case of empty program
       //   t.parent();
@@ -220,7 +222,12 @@ export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
         if (decl === "AssignStatement") {
           vardefs.push(traverseVarDef(t, s, idSet));
         } else if (decl === "FunctionDefinition") {
-          fundefs.push(traverseFunDef(t, s, idSet));
+          let func = traverseFunDef(t, s, idSet);
+          if (func.name === "__init__") {
+            builtins.set(func.name, func);
+          } else {
+            fundefs.push(func);
+          }
         } else {
           if (t.type.name.search("Statement") != -1)
             throw new ParseError("Could not parse statement at " +
@@ -230,7 +237,7 @@ export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
         }
       }
       t.parent();
-      return [vardefs, fundefs];
+      return [vardefs, fundefs, builtins];
   }
 }
 

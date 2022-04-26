@@ -390,25 +390,42 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   if (!found) {
     throw new Error(`Super class not defined: ${c.super}`)
   }
+  if (c.builtins.has("__init__")) {
+    var func = c.builtins.get("__init__");
+    func.body.stmts.push({ tag: "return", value: { tag: "id", name: "self" } });
+    func.ret = { tag: "object", class: c.name };
+    c.builtins.set("__init__", func);
+  } else {
+    c.builtins.set("__init__", {
+      name: "__init__", ret: { tag: "object", class: c.name }, params:[],
+      body: {
+        vardefs: [], stmts: [{ tag: "return", value: {tag: "id", name:"self"} }]
+      }
+    });
+  }
   // the class name must be unique, which is guaranteed in parser
   variables.addScope();
   functions.addScope();
   c.methods.forEach(m => {
     functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
   });
+  c.builtins.forEach((func, name) => {
+    functions.addDecl(name, [func.params.map(p => p.typ), func.ret]);
+  })
   variables.addDecl("self", {tag:"object", class: c.name});
   const newFields = c.fields.map(v => tcVarDef(v, variables, classes));
   classes.addDecl(c.name, {
     vars: variables.getCurScope(), 
     funs: functions.getCurScope(),
   });
+  const newBuiltins = new Map<string, FunDef<Type>>();
+  c.builtins.forEach((func, name) => {
+    newBuiltins.set(name, tcFuncDef(func, variables, functions, classes));
+   });
   const newMethods = c.methods.map(m => {
-    if (m.name === "__init__") { // TODO : init here or in parser
-      m.body.stmts.push({ tag: "return", value: { tag: "id", name: "self" } });
-      m.ret = { tag: "object", class: c.name };
-    }
     return tcFuncDef(m, variables, functions, classes)
   });
+
   // no redefinition error
   // const newMethods = c.methods.map(s => {
   //   let method = tcFuncDef(s, variables, functions, classes);
@@ -420,7 +437,7 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   });
   let indexOfField = new Map<string, number>();
   newFields.forEach((f, i) => indexOfField.set(f.typedvar.name, i));
-  return { ...c, methods: newMethods, fields: newFields, indexOfField };
+  return { ...c, methods: newMethods, fields: newFields, builtins:newBuiltins, indexOfField };
 }
 
 export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): VarDef<Type> {

@@ -14,7 +14,8 @@ export type TypedVar =
   | { name: string, typ: Type }
 
 export type ClsDef<A> = 
-  { tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[], indexOfField?: Map<string, number> }
+  { tag: "class", name: string, super: string, methods: FunDef<A>[], fields: VarDef<A>[], 
+    builtins?: Map<string, FunDef<A>>, indexOfField?: Map<string, number> }
 
 export type ObjType = { tag: "object", class: string }
 export type Type =

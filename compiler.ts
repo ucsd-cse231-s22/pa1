@@ -73,16 +73,16 @@ export function codeGenLit(lit: Literal<Type>): Array<string> {
   }
 }
 
-export function getInitFunc(cls: ClsDef<Type>): FunDef<Type> {
-  let i = 0;
-  let len = cls.methods.length;
-  for (i ; i < len; i ++) {
-    if (cls.methods[i].name === "__init__") {
-      return cls.methods[i];
-    }
-  }
-  return undefined;
-}
+// export function getInitFunc(cls: ClsDef<Type>): FunDef<Type> {
+//   let i = 0;
+//   let len = cls.methods.length;
+//   for (i ; i < len; i ++) {
+//     if (cls.methods[i].name === "__init__") {
+//       return cls.methods[i];
+//     }
+//   }
+//   return undefined;
+// }
 
 export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   switch (expr.tag) {
@@ -127,14 +127,10 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
           `(i32.add (i32.const ${clsdef.fields.length * 4}))`,
           `(global.set $heap)`,
         );
-        var initfunc = getInitFunc(clsdef);
-        if (initfunc) {
-          toCall = initfunc.name;
-          valStmts.push(`(call $${clsdef.name}$${toCall})`);
-          return [...initstmts, ...valStmts];
-        } else {
-          return initstmts;
-        }
+        var initfunc = clsdef.builtins.get("__init__");
+        toCall = initfunc.name;
+        valStmts.push(`(call $${clsdef.name}$${toCall})`);
+        return [...initstmts, ...valStmts];
       }
       if (expr.name === "print") {
         switch (expr.args[0].a) {
@@ -313,8 +309,10 @@ export function codeGenCls(c: ClsDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   locals.set("self", true);
   const methods = c.methods.map(m => 
     codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)).flat();
+  c.builtins.forEach((m, name) =>
+    methods.push(...codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)))
   locals.delete("self");
-  return methods;
+  return methods.flat();
 }
 
 export function compile(source: string): string {
