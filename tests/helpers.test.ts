@@ -21,15 +21,21 @@ export function typeCheck(source: string) : Type {
 export async function run(source: string) {
   let newImportObject = {
     ...importObject,
-    imports : {
-      ...importObject.imports,
-      ObjInit: (arg: any) => {
-        if (arg === 0) {
+    check: {
+      check_init: (arg: any) => {
+        if (arg <= 0) {
           throw new Error("RUNTIME ERROR: object not intialized");
         }
         return arg;
-      }
+      },
+      check_index: (length: any, arg: any) => {
+        if (arg >= length || arg < 0) {
+          throw new Error("RUNTIME ERROR: Index out of bounds");
+        }
+        return arg;
+      },
     }
+
   };
   return Run(compile(source), newImportObject);
 }

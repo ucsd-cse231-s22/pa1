@@ -23,17 +23,18 @@ const importObject = {
         print_none: (arg: any) => {
             importObject.output += "None\n";
         },
-        ObjInit: (arg: any) => {
-            if (arg === 0)
-                throw new Error("RUNTIME ERROR: object not intialized");
-            return arg;
-        },
         abs: Math.abs,
         min: Math.min,
         max: Math.max,
         pow: Math.pow,
     },
-
+    check: {
+        check_init: (arg: any) => {
+            if (arg === 0)
+                throw new Error("RUNTIME ERROR: object not intialized");
+            return arg;
+        },
+    },
     output: ""
 };
 

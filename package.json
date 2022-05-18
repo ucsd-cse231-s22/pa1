@@ -7,7 +7,9 @@
     "build-web": "webpack && cp index.html build/",
     "build-cli-repl": "tsc node-repl.ts --esModuleInterop --moduleResolution node --outDir cli/",
     "build-cli": "tsc node-cli.ts --esModuleInterop --moduleResolution node --lib es2019,dom --outDir cli/",
-    "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' mocha -r ts-node/register 'tests/**/*.test.ts'"
+    "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' mocha -r ts-node/register 'tests/**/*.test.ts'",
+    "test-pa2": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' mocha -r ts-node/register 'tests/**/pa2*.test.ts'",
+    "test-pa3": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' mocha -r ts-node/register 'tests/**/pa3*.test.ts'"
   },
   "author": "",
   "license": "ISC",
