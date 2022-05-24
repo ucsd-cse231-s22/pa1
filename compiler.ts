@@ -4,7 +4,8 @@ import { parseProgram } from './parser';
 import { tcProgram } from './tc';
 
 type Env = Map<string, boolean>;
-type ClsEnv = Map<string, ClsDef<Type>>;
+type ClsEnv = Map<string, [ClsDef<Type>, number]>;
+let wabtApi: any = null;
 
 function addIndent(s: string, indent: number = 0): string {
   return "  ".repeat(indent) + s;
@@ -28,8 +29,9 @@ function varsFunsStmts(p: Program<Type>): [string[], FunDef<Type>[], ClsDef<Type
 }
 
 export async function run(watSource: string, config: any): Promise<any> {
-  const wabtApi = await wabt();
-
+  if (wabtApi === null) {
+    wabtApi = await wabt();
+  }
   const parsed = wabtApi.parseWat("example", watSource);
   const binary = parsed.toBinary({});
   var memory = new WebAssembly.Memory({ initial: 10, maximum: 100 });
@@ -112,11 +114,16 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       let toCall = expr.name;
       if (clsEnv.has(expr.name)) { // this is an object constructor
         const initstmts: Array<string> = [];
-        const clsdef = clsEnv.get(expr.name);
+        const [clsdef, tableIdx] = clsEnv.get(expr.name);
+        initstmts.push(
+          `(global.get $heap)`, 
+          `(i32.const ${tableIdx})`,
+          `(i32.store)`
+        );
         clsdef.fields.map((f, i) => {
           initstmts.push(
             `(global.get $heap)`,
-            `(i32.add (i32.const ${4 * i}))`,
+            `(i32.add (i32.const ${4 * i + 4}))`,
             codeGenLit(f.init)[0],
             `(i32.store)`
           );
@@ -125,12 +132,17 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
           `(global.get $heap) ;; return value of the object`, 
           `(global.get $heap) ;; for the param for __init__`, 
           `(global.get $heap)`,
-          `(i32.add (i32.const ${clsdef.fields.length * 4}))`,
+          `(i32.add (i32.const ${clsdef.fields.length * 4 + 4}))`,
           `(global.set $heap)`,
         );
-        var initfunc = clsdef.builtins.get("__init__");
-        toCall = initfunc.name;
-        valStmts.push(`(call $${clsdef.name}$${toCall})`, `(local.set $scratch)`);
+        // var toCall = clsdef.ptrOfMethod.get("__init__");
+        let toCallIdx = clsdef.indexOfMethod.get("__init__");
+        valStmts.push(
+          `(i32.add (i32.const ${tableIdx}) (i32.const ${toCallIdx})) ;; get the index of the function in table`, 
+          // `(call $${clsdef.name}$${toCall})`, 
+          `(call_indirect (type ${clsdef.ptrOfMethod.get("__init__")}$type))`,
+          `(local.set $scratch)`
+        );
         return [...initstmts, ...valStmts];
       }
       if (expr.name === "print") {
@@ -147,22 +159,33 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       fieldStmts.push(`(i32.load)`);
       return fieldStmts;
     case "method":
+      const clsName = getTypeStr(expr.obj.a);
+      const [cls, tableIdx] = clsEnv.get(clsName);
       const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
       const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
-      return [...objStmt, 
+      let toCallIdx = cls.indexOfMethod.get(expr.name);
+      return [...objStmt, // self
+        `(global.set $self)`, 
+        // TODO: for every class, a global var, still may be overwritten
+        `(global.get $self)`, 
         `(call $check_init)`,
         ...argInstrs, 
-        `(call $${getTypeStr(expr.obj.a)}$${expr.name})`];
+        `(global.get $self)`, 
+        `(i32.load) ;; vtable`, 
+        `(i32.add (i32.const ${toCallIdx}))`, 
+        `(call_indirect (type ${cls.ptrOfMethod.get(expr.name)}$type))`
+        // `(call $${getTypeStr(expr.obj.a)}$${expr.name})`
+      ];
     }
 }
 
 export function codeGenMemberExpr(expr: MemberExpr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
-  const cls = clsEnv.get(getTypeStr(expr.obj.a));
+  const [cls, tableIdx] = clsEnv.get(getTypeStr(expr.obj.a));
   
   objStmt.push(
     `(call $check_init)`,
-    `(i32.add (i32.const ${cls.indexOfField.get(expr.field) * 4}))`
+    `(i32.add (i32.const ${cls.indexOfField.get(expr.field) * 4 + 4}))`
   );
   return objStmt;
 }
@@ -279,9 +302,9 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
 
   // Construct the code for params and variable declarations in the body
   let params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
-  if (methodName) {
-    params = `(param $self i32) ` + params;
-  }
+  // if (methodName) {
+  //   params = `(param $self i32) ` + params;
+  // }
   const varDecls = variables.map(v => `(local $${v} i32)`).map(v => addIndent(v, indent + 1)).join("\n");
   const varAssign = f.body.vardefs.map(v => codeGenVars(v, withParamsAndVariables, indent + 1)).join("\n");
 
@@ -313,10 +336,44 @@ export function codeGenCls(c: ClsDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   locals.set("self", true);
   const methods = c.methods.map(m => 
     codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)).flat();
-  c.builtins.forEach((m, name) =>
-    methods.push(...codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)))
+  // c.builtins.forEach((m, name) =>
+  //   methods.push(...codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)))
   locals.delete("self");
   return methods.flat();
+}
+
+export function codeGenTable(classes: ClsDef<Type>[], clsEnv: ClsEnv, indent: number): Array<string> {
+  let funcNums = 0
+  const tableContents: string[] = [];
+  const typeSigSet = new Set<string>();
+  
+  classes.forEach(c => {
+    clsEnv.set(c.name, [c, funcNums]);
+    funcNums += c.indexOfMethod.size;
+    tableContents.push(addIndent(`;; start for class ${c.name}`, 1));
+    c.ptrOfMethod.forEach((fullName, shortName) => {
+      tableContents.push(addIndent(fullName, 1));
+    });
+  });
+  
+  classes.forEach(c => {
+    c.methods.forEach(m => {
+      const paramsStr = m.params.map(p => `(param i32)`).join(" ");
+      const name = `${c.ptrOfMethod.get(m.name)}$type`;
+      typeSigSet.add(`(type ${name} (func ${paramsStr} (result i32)))`)
+    });
+  });
+  const typeSigStmts = Array.from(typeSigSet);
+
+  const tableStmts = [
+    ...typeSigStmts,
+    `(table ${funcNums} funcref)`, 
+    `(elem (i32.const 0)`,
+    ...tableContents, 
+    `)`
+  ];
+
+  return tableStmts.map(stmt => addIndent(stmt, indent));
 }
 
 export function compile(source: string): string {
@@ -324,15 +381,20 @@ export function compile(source: string): string {
   ast = tcProgram(ast);
   let basicIndent = 1;
   const emptyEnv = new Map<string, boolean>();
-  const clsEnv = new Map<string, ClsDef<Type>>();
+  const clsEnv = new Map<string, [ClsDef<Type>, number]>();
   const [vars, funs, classes, stmts] = varsFunsStmts(ast);
-  classes.map(c => clsEnv.set(c.name, c));
+  // classes.map(c => clsEnv.set(c.name, c)); //move into table
+  const tableStmts = codeGenTable(classes, clsEnv, basicIndent).join("\n");
   const clsCode: string[] = classes.map(c => codeGenCls(c, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
   const allCls = clsCode.join("\n\n");
   const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
   const varDecls = vars.map(v => addIndent(`(global $${v} (mut i32) (i32.const 0))`, basicIndent));
-  const varCode = [`(global $heap (mut i32) (i32.const 4))`, ...varDecls].join("\n");
+  const varCode = [
+    `(global $heap (mut i32) (i32.const 4))`, 
+    `(global $self (mut i32) (i32.const 0))`, 
+    ...varDecls
+  ].join("\n");
   const varAssign = ast.vardefs.map(v => codeGenVars(v, emptyEnv, basicIndent + 1));
   const allStmts = stmts.map(s => codeGenStmt(s, emptyEnv, clsEnv, basicIndent + 1)).flat();
 
@@ -357,6 +419,7 @@ export function compile(source: string): string {
   (func $min(import "imports" "min") (param i32) (param i32) (result i32))
   (func $max(import "imports" "max") (param i32) (param i32) (result i32))
   (func $pow(import "imports" "pow") (param i32) (param i32) (result i32))
+  ${tableStmts}
   ${varCode}
   ${allFuns}
   ${allCls}

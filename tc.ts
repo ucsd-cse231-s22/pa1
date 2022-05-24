@@ -164,14 +164,13 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         // TODO: do for init
         if (cls.funs.has("__init__")) {
           var [args, ret] = cls.funs.get("__init__");
-          if (args.length !== e.args.length) {
+          if (args.length - 1 !== e.args.length) {
             throw new Error(`Expected ${args.length} arguments; got ${e.args.length}`);
           }
-
-          var newArgs = args.map((a, i) => {
-            const argtyp = tcExpr(e.args[i], variables, functions, classes);
-            if (!assignable(a, argtyp.a)) {
-              throw new TypeError(`Expected ${getTypeStr(a)}; got type ${getTypeStr(argtyp.a)} in parameter ${i + 1}`);
+          var newArgs = e.args.map((arg, i) => {
+            const argtyp = tcExpr(arg, variables, functions, classes);
+            if (!assignable(args[i + 1], argtyp.a)) {
+              throw new TypeError(`Expected ${getTypeStr(args[i + 1])}; got type ${getTypeStr(argtyp.a)} in parameter ${i + 1}`);
             }
             return argtyp;
           });
@@ -217,14 +216,14 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       }
       // var newArgs = e.args.map(a => tcExpr(a, variables, functions, classes));
       const [argsTyp, retTyp] = cls.funs.get(e.name);
-      if (argsTyp.length !== e.args.length) {
-        throw new Error(`Expected ${argsTyp.length} arguments; got ${e.args.length}`);
+      if (argsTyp.length - 1 !== e.args.length) {
+        throw new Error(`Expected ${argsTyp.length - 1} arguments; got ${e.args.length}`);
       }
       var newArgs = e.args.map((a, i) => {
         let newa = tcExpr(a, variables, functions, classes);
         // if (newa.a !== argsTyp[i]) {
-        if (!assignable(argsTyp[i], newa.a)) {
-          throw new TypeError(`Expected ${argsTyp[i]}; got type ${newa.a} in parameter ${i + 1}`);
+        if (!assignable(argsTyp[i+1], newa.a)) {
+          throw new TypeError(`Expected ${getTypeStr(argsTyp[i+1])}; got type ${newa.a} in parameter ${i + 1}`);
         }
         return newa;
       });
@@ -386,71 +385,56 @@ export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, functions: Functio
   return { ...f, body: { vardefs: newvardefs, stmts: newStmts } };
 }
 
-export function completeClsBuiltin(c: ClsDef<any>) {
-  if (!c.builtins.has("__init__")) {
-    c.builtins.set("__init__", {
-      name: "__init__", ret: "none",
-      params: [{ name: "self", typ: { tag: "object", class: c.name } }],
-      body: { vardefs: [], stmts: [{ tag: "pass" }] }
-    });
-  }
-}
-
-export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
+export function tcClsDef(c: ClsDef<any>, variables: BodyEnv, 
   functions: FunctionsEnv, classes: ClassEnv): ClsDef<Type> {
-  const [found] = classes.lookUpVar(c.super);
-  if (!found) {
-    throw new Error(`Super class not defined: ${c.super}`)
-  }
-  completeClsBuiltin(c);
+  // clsdef has already set indexOfField, indexOfMethod and ptrOfMethod
+  const [found, superClsEnv] = classes.lookUpVar(c.super);
+  // if (!found) {
+  //   // should not report, already checked
+  //   throw new Error(`Super class not defined: ${c.super}`);
+  // }
   // the class name must be unique, which is guaranteed in parser
   variables.addScope();
   functions.addScope();
-  c.methods.forEach(m => {
+  classes.addDecl(c.name, {
+    vars: variables.getCurScope(),
+    funs: functions.getCurScope(),
+  });
+
+  variables.addDecl("self", { tag: "object", class: c.name });
+  const newFields = c.fields.map(v => tcVarDef(v, variables, classes));
+
+  const newMethods = c.methods.map(m => {
     if (m.params.length < 1 || m.params[0].name !== "self") {
       throw new Error(`First parameter of the following method ` + 
       `must be of the enclosing class: ${c.name}`);
     }
-    m.params.shift(); // delete the self arg
-    functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
-  });
-  c.builtins.forEach((func, name) => {
-    if (func.params.length < 1 || func.params[0].name !== "self") {
-      throw new Error(`First parameter of the following method ` +
-        `must be of the enclosing class: ${c.name}`);
-    }
-    if (func.name === "__init__" && func.params.length > 1) {
+    if (m.name === "__init__" && m.params.length > 1) {
       throw new TypeError(`__init__ method does not accept arguments`);
     }
-    func.params.shift(); // delete the self arg
-    functions.addDecl(name, [func.params.map(p => p.typ), func.ret]);
-  })
-  variables.addDecl("self", {tag:"object", class: c.name});
-  const newFields = c.fields.map(v => tcVarDef(v, variables, classes));
-  classes.addDecl(c.name, {
-    vars: variables.getCurScope(), 
-    funs: functions.getCurScope(),
-  });
-  const newBuiltins = new Map<string, FunDef<Type>>();
-  c.builtins.forEach((func, name) => {
-    newBuiltins.set(name, tcFuncDef(func, variables, functions, classes));
-   });
-  const newMethods = c.methods.map(m => {
-    return tcFuncDef(m, variables, functions, classes)
+    // m.params.shift(); // delete the self arg
+    if (found && superClsEnv.funs.has(m.name)) {
+      const [oldArgsTypes, oldRetType] = superClsEnv.funs.get(m.name);
+      m.params.forEach((arg, i) => {
+        // equal 
+        if (!assignable(arg.typ, oldArgsTypes[i]) && arg.name !== "self") {
+          throw new Error(`Method overriden with different type signature: ${c.name}`);
+        }
+      });
+      if (!assignable(m.ret, oldRetType)) {
+        throw new Error(`Method overriden with different type signature: ${c.name}`);
+      }
+    }
+    functions.addDecl(m.name, [m.params.map(p => p.typ), m.ret]);
+    return tcFuncDef(m, variables, functions, classes);
   });
 
-  // no redefinition error
-  // const newMethods = c.methods.map(s => {
-  //   let method = tcFuncDef(s, variables, functions, classes);
-  //   return {...method, name: `${c.name}$${method.name}`}
-  // });
   classes.addDecl(c.name, { 
     vars: variables.removeScope(), 
     funs: functions.removeScope()
   });
-  let indexOfField = new Map<string, number>();
-  newFields.forEach((f, i) => indexOfField.set(f.typedvar.name, i));
-  return { ...c, methods: newMethods, fields: newFields, builtins:newBuiltins, indexOfField };
+
+  return { ...c, methods: newMethods, fields: newFields };
 }
 
 export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): VarDef<Type> {
@@ -465,7 +449,7 @@ export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): Var
   } 
   else {
     const clsName = s.typedvar.typ;
-    const [found] = classes.lookUpVar((clsName as ObjType).class);
+    const [found] = classes.lookUpVar(getTypeStr(clsName));
     if (!found) {
       throw new Error(`Invalid type annotation; ` + 
         `there is no class named: ${clsName}`);
@@ -478,25 +462,102 @@ export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): Var
   return { ...s, init: rhs };
 }
 
+export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
+  functions: FunctionsEnv, classes: ClassEnv) {
+  const objCls: ClsDef<any> = {
+    tag: "class", name: "object", super: null,
+    methods: [
+      {
+        name: "__init__", ret: "none",
+        params: [{ name: "self", typ: { tag: "object", class: "object" } }],
+        body: { vardefs: [], stmts: [{ tag: "pass" }] }
+      }
+    ],
+    fields: [],
+    indexOfField: new Map<string, number>(),
+    indexOfMethod: new Map<string, number>(),
+    ptrOfMethod: new Map<string, string>(),
+  }
+  objCls.indexOfMethod.set("__init__", 0);
+  objCls.ptrOfMethod.set("__init__", "$object$__init__");
+  clsdefs.push(objCls);
+  // classes.addDecl("object", {
+  //   vars: new Map<string, Type>(),
+  //   funs: new Map<string, [Type[], Type]>()
+  // });
+  // classes.getCurScope().get("object").funs.set(
+  //   "__init__", [ [ { tag: "object", class: "object"} ], "none" ]);
+  const clsGraph = new Map<string, Set<ClsDef<any>>>();
+  clsdefs.forEach(cls => clsGraph.set(cls.name, new Set<ClsDef<any>>()));
+  clsdefs.forEach(cls => {
+    if (cls.super !== null && !clsGraph.has(cls.super)) {
+      throw new Error(`Super class not defined: ${cls.super}`);
+    }
+    else if (cls.super !== null)
+      clsGraph.get(cls.super).add(cls);
+  });
+
+  const queue:ClsDef<any>[] = [];
+  const newClsDefs: ClsDef<any>[] = [];
+  queue.push(objCls);
+  while (queue.length !== 0) {
+    let superCls = queue.shift();
+    superCls = tcClsDef(superCls, variables, functions, classes);
+    newClsDefs.push(superCls);
+    const [found, clsEnvIns] = classes.lookUpVar(superCls.name, 0); // global
+    clsGraph.get(superCls.name).forEach(subCls => {
+      const indexOfField = new Map<string, number>(superCls.indexOfField.entries());
+      const indexOfMethod = new Map<string, number>(superCls.indexOfMethod.entries());
+      const ptrOfMethod = new Map<string, string>(superCls.ptrOfMethod.entries());
+      const lenSuperField = superCls.indexOfField.size;
+      let lenMethod = superCls.indexOfMethod.size;
+      subCls.fields.forEach((f, i) => {
+        if (indexOfField.has(f.typedvar.name)) {
+          throw new Error(`Cannot re-define attribute: ${f.typedvar.name} in class ${subCls.name}`);
+        }
+        indexOfField.set(f.typedvar.name, i + lenSuperField);
+      });
+
+      subCls.methods.forEach(m => {
+        if (!indexOfMethod.has(m.name)) {
+          // compare the function?
+          indexOfMethod.set(m.name, lenMethod);
+          lenMethod = lenMethod + 1;
+        } 
+        ptrOfMethod.set(m.name, `$${subCls.name}$${m.name}`);
+      });
+      // let newSubCls = tcClsDef(subCls, variables, functions, classes);
+      let newSubCls = { ...subCls, indexOfField, indexOfMethod, ptrOfMethod }
+      queue.push(newSubCls);
+    })
+  }
+  return newClsDefs;
+}
+
 export function tcProgram(p: Program<any>): Program<Type> {
+  const variables = new Env<Type>();
   const functions = new Env<[Type[], Type]>();
+  const classes = new Env<OneClass<Type>>();
+
   p.fundefs.forEach(s => {
     functions.addDecl(s.name, [s.params.map(p => p.typ), s.ret]);
   }); // no redefinition error
-  const classes = new Env<OneClass<Type>>();
+  
   classes.addDecl("object", undefined);
   p.clsdefs.forEach(c => {
     classes.addDecl(c.name, undefined);
   })
-
-  const variables = new Env<Type>();
+  
   const vardefs = p.vardefs.map(s => tcVarDef(s, variables, classes));
-  const clsdefs = p.clsdefs.map(s => tcClsDef(s, variables, functions, classes));
+  const clsdefs = processCls(p.clsdefs, variables, functions, classes);
+  // let clsdefs = p.clsdefs.map(s => tcClsDef(s, variables, functions, classes));
   const fundefs = p.fundefs.map(s => tcFuncDef(s, variables, functions, classes));
+  
 
   const stmts = p.stmts.map(s => {
     const res = tcStmt(s, variables, functions, classes, "none");
     return res;
   });
+
   return { ...p, vardefs, fundefs, clsdefs, stmts };
 }

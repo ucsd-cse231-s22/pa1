@@ -99,17 +99,17 @@ print(c2.x)
 `, [`123`]),
   // 11
   assertPrint("chained-method-calls", `
-  class C(object):
-    x : int = 123
-    def new(self: C, x: int) -> C:
-      print(self.x)
-      self.x = x
-      print(self.x)
-      return self
-    def clear(self: C) -> C:
-      return self.new(123)
-  
-  C().new(42).clear()`, ["123", "42", "42", "123"])
+class C(object):
+  x : int = 123
+  def new(self: C, x: int) -> C:
+    print(self.x)
+    self.x = x
+    print(self.x)
+    return self
+  def clear(self: C) -> C:
+    return self.new(123)
+
+C().new(42).clear()`, ["123", "42", "42", "123"])
   // 12
   assertFail("no-fields-for-none", `
   class C(object):

@@ -157,12 +157,11 @@ export function traverseClsDef(t: TreeCursor, s: string, idSet: Set<any>): ClsDe
   t.nextSibling(); // focus on body
   var fields: VarDef<any>[];
   var methods: FunDef<any>[];
-  var builtins: Map<string, FunDef<any>>;
-  [fields, methods, builtins] = traverseClsBody(t, s, curIdSet);
+  [fields, methods] = traverseClsBody(t, s, curIdSet);
   t.parent();
   return {
     tag: "class", name, super: superName, 
-    methods, fields, builtins
+    methods, fields
   };
 }
 
@@ -198,7 +197,7 @@ export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
       do {
         // if (isVarDecl(c, s) || isFunDef(c, s) || isClassDecl(t, s))
         //   throw new Error("PARSER ERROR: variable and function declaration must come before the body");
-        if (t.type.name.search("Statement") != -1)
+        if (t.type.name.search("Statement") !== -1)
           stmts.push(traverseStmt(t, s));
       } while (t.nextSibling())
       t.parent();
@@ -207,12 +206,11 @@ export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
 }
 
 export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
-  [VarDef<any>[], FunDef<any>[], Map<string, FunDef<any>>] {
+  [VarDef<any>[], FunDef<any>[]] {
   switch (t.node.type.name) {
     case "Body":  // function body
       let vardefs: VarDef<any>[] = [];
       let fundefs: FunDef<any>[] = [];
-      let builtins = new Map<string, FunDef<any>>();
       t.firstChild(); //focus on semicolon
       // if (!t.nextSibling()) { //in case of empty program
       //   t.parent();
@@ -223,21 +221,15 @@ export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
           vardefs.push(traverseVarDef(t, s, idSet));
         } else if (decl === "FunctionDefinition") {
           let func = traverseFunDef(t, s, idSet);
-          if (func.name === "__init__") {
-            builtins.set(func.name, func);
-          } else {
-            fundefs.push(func);
-          }
-        } else {
-          if (t.type.name.search("Statement") != -1)
-            throw new ParseError("Could not parse statement at " +
-              t.from + " " + t.to + ": " + s.substring(t.from, t.to));
-          else 
-            break;
+          fundefs.push(func);
+        } else if (t.type.name !== "PassStatement") {
+          // if (t.type.name.search("Statement") !== -1)
+          throw new ParseError("Could not parse statement at " +
+            t.from + " " + t.to + ": " + s.substring(t.from, t.to));
         }
       }
       t.parent();
-      return [vardefs, fundefs, builtins];
+      return [vardefs, fundefs];
   }
 }
 
@@ -251,7 +243,7 @@ export function traverseStmts(t: TreeCursor, s: string): Stmt<any>[] {
       t.firstChild(); // focus on semicolon
       t.nextSibling();
       do {
-        if (t.type.name.search("Statement") != -1)
+        if (t.type.name.search("Statement") !== -1)
           stmts.push(traverseStmt(t, s));
       } while (t.nextSibling()); // t.nextSibling() returns false when it reaches
       //  the end of the list of children
