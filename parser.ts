@@ -125,14 +125,11 @@ export function traverseFunDef(t: TreeCursor, s: string, idSet: Set<any>): FunDe
   }
   t.nextSibling(); // Focus on Body
 
-  var localvar: VarDef<any>[];
-  var localfun: FunDef<any>[];
-  var body: Stmt<any>[];
-  [localvar, localfun, body] = traverseFuncBody(t, s, curIdSet);
+  const [localvar, localfun, body] = traverseFuncBody(t, s, curIdSet);
   t.parent();      // Pop to FunctionDefinition
   return {
     name, params, ret,
-    body: { vardefs: localvar, stmts: body }
+    body: { vardefs: localvar, fundefs: localfun, stmts: body }
   };
 }
 
@@ -155,9 +152,8 @@ export function traverseClsDef(t: TreeCursor, s: string, idSet: Set<any>): ClsDe
   const superName = s.substring(t.from, t.to);
   t.parent();
   t.nextSibling(); // focus on body
-  var fields: VarDef<any>[];
-  var methods: FunDef<any>[];
-  [fields, methods] = traverseClsBody(t, s, curIdSet);
+
+  const [fields, methods] = traverseClsBody(t, s, curIdSet);
   t.parent();
   return {
     tag: "class", name, super: superName, 
@@ -182,8 +178,8 @@ export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
         if (decl === "AssignStatement") {
           vardefs.push(traverseVarDef(t, s, idSet));
         } else if (decl === "FunctionDefinition") {
-          // fundefs.push(traverseFunDef(t, s, idSet));
-          throw new Error("nested function not supported");
+          fundefs.push(traverseFunDef(t, s, idSet));
+          // throw new Error("nested function not supported");
         } else {
           break;
         }
