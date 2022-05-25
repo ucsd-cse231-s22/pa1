@@ -6,6 +6,9 @@ import { tcProgram } from './tc';
 type Env = Map<string, boolean>;
 type ClsEnv = Map<string, [ClsDef<Type>, number]>;
 let wabtApi: any = null;
+let selfVar = 0;
+let selfVarMax = 0;
+
 
 function addIndent(s: string, indent: number = 0): string {
   return "  ".repeat(indent) + s;
@@ -130,7 +133,7 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
         });
         initstmts.push(
           `(global.get $heap) ;; return value of the object`, 
-          `(global.get $heap) ;; for the param for __init__`, 
+          `(global.get $heap) ;; the param self of __init__`, 
           `(global.get $heap)`,
           `(i32.add (i32.const ${clsdef.fields.length * 4 + 4}))`,
           `(global.set $heap)`,
@@ -162,15 +165,18 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       const clsName = getTypeStr(expr.obj.a);
       const [cls, tableIdx] = clsEnv.get(clsName);
       const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
+      selfVar += 1;
+      selfVarMax = selfVar > selfVarMax ? selfVar : selfVarMax;
       const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
+      selfVar -= 1
       let toCallIdx = cls.indexOfMethod.get(expr.name);
       return [...objStmt, // self
-        `(global.set $self)`, 
+        `(global.set $self${selfVar})`, 
         // TODO: for every class, a global var, still may be overwritten
-        `(global.get $self)`, 
+        `(global.get $self${selfVar})`, 
         `(call $check_init)`,
         ...argInstrs, 
-        `(global.get $self)`, 
+        `(global.get $self${selfVar})`, 
         `(i32.load) ;; vtable`, 
         `(i32.add (i32.const ${toCallIdx}))`, 
         `(call_indirect (type ${cls.ptrOfMethod.get(expr.name)}$type))`
@@ -260,7 +266,6 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
       const ifcondbody = codeGenCondBody(stmt.ifstmt, locals, clsEnv, indent).flat();
       const elifcondbody = stmt.elifstmt.map(p => codeGenCondBody(p, locals, clsEnv, indent + 2, "elif")).flat();
       const elsestmt = stmt.elsestmt.map(p => codeGenStmt(p, locals, clsEnv, indent + 2)).flat();
-      // console.log([...ifcondbody, `(else`, ...elifcondbody, ...elsestmt, `br 0`, `)`]);
       if (elifcondbody.length !== 0 || elsestmt.length !== 0) 
         return [
           ...ifcondbody,
@@ -319,7 +324,7 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   varDecls,
   varAssign,
   stmtsBody,
-  addIndent(`(i32.const 0))`, indent + 1)];
+  addIndent(`(i32.const 0))`, indent + 1)].filter(s => s.length !== 0);
 }
 
 export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): string {
@@ -376,6 +381,26 @@ export function codeGenTable(classes: ClsDef<Type>[], clsEnv: ClsEnv, indent: nu
   return tableStmts.map(stmt => addIndent(stmt, indent));
 }
 
+
+export function codeGenAllGlobalVar(vars: string[], indent: number): string[] {
+  const varSelf = [];
+  for (let i = 0; i <= selfVarMax; i++) {
+    varSelf.push(addIndent(`(global $self${i} (mut i32) (i32.const 0))`, indent));
+  }
+  var varUser = vars.map(v => addIndent(`(global $${v} (mut i32) (i32.const 0))`, 1));
+  // const forLoopLabels = []
+  // for (let i = 0; i < for_label; i++) {
+  //   forLoopLabels.push(
+  //     `(global $ForLoopIter${i} (mut i32) (i32.const 0))`,
+  //     `(global $ForLoopCnt${i} (mut i32) (i32.const 0))`,
+  //     `(global $ForLoopLen${i} (mut i32) (i32.const 0))`
+  //   );
+  // }
+  // var varHelper = addIndent(forLoopLabels, 1).join("\n");
+  // return varUser + varHelper;
+  return [...varSelf, ...varUser];
+}
+
 export function compile(source: string): string {
   let ast = parseProgram(source);
   ast = tcProgram(ast);
@@ -389,14 +414,14 @@ export function compile(source: string): string {
   const allCls = clsCode.join("\n\n");
   const funsCode: string[] = funs.map(f => codeGenFun(f, emptyEnv, clsEnv, basicIndent)).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
-  const varDecls = vars.map(v => addIndent(`(global $${v} (mut i32) (i32.const 0))`, basicIndent));
-  const varCode = [
-    `(global $heap (mut i32) (i32.const 4))`, 
-    `(global $self (mut i32) (i32.const 0))`, 
-    ...varDecls
-  ].join("\n");
   const varAssign = ast.vardefs.map(v => codeGenVars(v, emptyEnv, basicIndent + 1));
   const allStmts = stmts.map(s => codeGenStmt(s, emptyEnv, clsEnv, basicIndent + 1)).flat();
+  // const varDecls = vars.map(v => addIndent(`(global $${v} (mut i32) (i32.const 0))`, basicIndent));
+  const varDecls = codeGenAllGlobalVar(vars, basicIndent);
+  const varCode = [
+    `(global $heap (mut i32) (i32.const 4))`,
+    ...varDecls
+  ].join("\n");
 
   const main = [`(local $scratch i32)`, ...varAssign, ...allStmts].join("\n");
 

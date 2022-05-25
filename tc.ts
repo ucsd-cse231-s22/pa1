@@ -3,7 +3,8 @@ The type checker uses an array of BodyEnv as different level of scopes,
 making it easier(?) to add keywords like global and nonlocal
 This idea is borrowed from my classmate, Shanbin Ke.
 */
-import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, ObjType, isCls, getTypeStr } from "./ast";
+import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, ObjType } from "./ast";
+import { isTypeEqual, isCls, getTypeStr, isAssignable } from "./ast"
 import { TypeError } from "./error"
 // type FunctionsEnv = Map<string, [Type[], Type]>;
 // type BodyEnv = Map<string, Type>;
@@ -58,10 +59,28 @@ class Env<T> {
 class OneClass<T> {
   vars: Map<string, T>;
   funs: Map<string, [Type[], Type]>;
+  super: ObjType = null;
   constructor() {
     this.vars = new Map<string, T>();
     this.funs = new Map<string, [Type[], Type]>();
+    this.super = null;
   }
+}
+
+function isSubClass(superCls: Type, subCls: Type, classes: ClassEnv): boolean {
+  if (!isCls(superCls) || !isCls(subCls)) {
+    // sanity check
+    throw new Error("not a class type");
+  }
+  while (subCls.class !== "object") {
+    const [found, clsEnv] = classes.lookUpVar(getTypeStr(subCls));
+    // TODO: type comparison
+    if (isTypeEqual(superCls, clsEnv.super)) {
+      return true;
+    }
+    subCls = clsEnv.super;
+  } 
+  return false;
 }
 
 export function tcLit(lit: Literal<any>): Literal<Type> {
@@ -169,7 +188,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
           }
           var newArgs = e.args.map((arg, i) => {
             const argtyp = tcExpr(arg, variables, functions, classes);
-            if (!assignable(args[i + 1], argtyp.a)) {
+            if (!assignable(args[i + 1], argtyp.a, classes)) {
               throw new TypeError(`Expected ${getTypeStr(args[i + 1])}; got type ${getTypeStr(argtyp.a)} in parameter ${i + 1}`);
             }
             return argtyp;
@@ -193,7 +212,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
 
       var newArgs = args.map((a, i) => {
         const argtyp = tcExpr(e.args[i], variables, functions, classes);
-        if (!assignable(a, argtyp.a)) {
+        if (!assignable(a, argtyp.a, classes)) {
           throw new TypeError(`Expected ${getTypeStr(a)}; got type ${getTypeStr(argtyp.a)} in parameter ${i + 1}`);
         }
         return argtyp;
@@ -222,7 +241,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       var newArgs = e.args.map((a, i) => {
         let newa = tcExpr(a, variables, functions, classes);
         // if (newa.a !== argsTyp[i]) {
-        if (!assignable(argsTyp[i+1], newa.a)) {
+        if (!assignable(argsTyp[i + 1], newa.a, classes)) {
           throw new TypeError(`Expected ${getTypeStr(argsTyp[i+1])}; got type ${newa.a} in parameter ${i + 1}`);
         }
         return newa;
@@ -231,17 +250,12 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
   }
 }
 
-function assignable(src: Type, tar: Type): boolean {
-  /* 
-  if the type tar can be assigned to original type src 
-  */
-  const s = getTypeStr(src);
-  const t = getTypeStr(tar);
-  if (s === t) {
+function assignable(src: Type, tar: Type, classes: ClassEnv):boolean {
+  // if the type tar can be assigned to original type src 
+  if (isAssignable(src, tar)) {
     return true;
-  }
-  else if (isCls(src)) {
-    return tar === "none";
+  } else if (isCls(src) && isCls(tar)) {
+    return isSubClass(src, tar, classes);
   }
   return false;
 }
@@ -283,7 +297,7 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
           else
             throw new ReferenceError(`Not a variable: ${s.target}`);
         }
-        if (!assignable(typ, rhs.a)) {
+        if (!assignable(typ, rhs.a, classes)) {
           throw new TypeError(`Expect type '${getTypeStr(typ)}'; got type '${getTypeStr(rhs.a)}'`);
         }
         if (isCls(typ)) {
@@ -293,7 +307,7 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
         return { ...s, value: rhs };
       } else if (s.target.tag === "getfield") {
         const target = tcMemberExpr(s.target, variables, functions, classes);
-        if (!assignable(target.a, rhs.a)) {
+        if (!assignable(target.a, rhs.a, classes)) {
           throw new TypeError(`Expect type '${getTypeStr(target.a)}'; got type '${getTypeStr(rhs.a)}'`);
         }
         return { ...s, target, value: rhs};
@@ -310,7 +324,7 @@ export function tcStmt(s: Stmt<any>, variables: BodyEnv,
     }
     case "return": {
       const valTyp = tcExpr(s.value, variables, functions, classes);
-      if (!assignable(currentReturn, valTyp.a)) {
+      if (!assignable(currentReturn, valTyp.a, classes)) {
         throw new TypeError(`${getTypeStr(valTyp.a)} returned but ${getTypeStr(currentReturn)} expected.`);
       }
       return { ...s, value: valTyp };
@@ -399,14 +413,25 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   classes.addDecl(c.name, {
     vars: variables.getCurScope(),
     funs: functions.getCurScope(),
+    super: { tag: "object", class: c.super }
   });
-
   variables.addDecl("self", { tag: "object", class: c.name });
+  if (found) {
+    superClsEnv.vars.forEach((typ, v) => {
+      variables.addDecl(v, typ);
+    });
+    superClsEnv.funs.forEach((typ, f) => {
+      functions.addDecl(f, typ);
+    });
+  }
+
   const newFields = c.fields.map(v => tcVarDef(v, variables, classes));
 
   const newMethods = c.methods.map(m => {
-    if (m.params.length < 1 || m.params[0].name !== "self") {
-      throw new Error(`First parameter of the following method ` + 
+    if (m.params.length < 1 || 
+      m.params[0].name !== "self" || 
+      !isTypeEqual(m.params[0].typ, { tag: "object", class: c.name })) {
+      throw new TypeError(`First parameter of the following method ` + 
       `must be of the enclosing class: ${c.name}`);
     }
     if (m.name === "__init__" && m.params.length > 1) {
@@ -417,11 +442,11 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
       const [oldArgsTypes, oldRetType] = superClsEnv.funs.get(m.name);
       m.params.forEach((arg, i) => {
         // equal 
-        if (!assignable(arg.typ, oldArgsTypes[i]) && arg.name !== "self") {
+        if (!assignable(arg.typ, oldArgsTypes[i], classes) && arg.name !== "self") {
           throw new Error(`Method overriden with different type signature: ${c.name}`);
         }
       });
-      if (!assignable(m.ret, oldRetType)) {
+      if (!assignable(m.ret, oldRetType, classes)) {
         throw new Error(`Method overriden with different type signature: ${c.name}`);
       }
     }
@@ -431,7 +456,8 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
 
   classes.addDecl(c.name, { 
     vars: variables.removeScope(), 
-    funs: functions.removeScope()
+    funs: functions.removeScope(),
+    super: { tag: "object", class: c.super }
   });
 
   return { ...c, methods: newMethods, fields: newFields };
@@ -448,15 +474,16 @@ export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): Var
     }
   } 
   else {
-    const clsName = s.typedvar.typ;
-    const [found] = classes.lookUpVar(getTypeStr(clsName));
+    const clsTyp = s.typedvar.typ;
+    const clsName = getTypeStr(clsTyp)
+    const [found] = classes.lookUpVar(clsName);
     if (!found) {
       throw new Error(`Invalid type annotation; ` + 
         `there is no class named: ${clsName}`);
     }
     if (rhs.a !== "none") {
       throw new TypeError(`Expect type '${clsName}'; ` +
-        `got type '${rhs.a}'`);
+        `got type '${getTypeStr(rhs.a)}'`);
     }
   } 
   return { ...s, init: rhs };
@@ -511,11 +538,13 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
       const ptrOfMethod = new Map<string, string>(superCls.ptrOfMethod.entries());
       const lenSuperField = superCls.indexOfField.size;
       let lenMethod = superCls.indexOfMethod.size;
+      const newFields = superCls.fields.slice();
       subCls.fields.forEach((f, i) => {
         if (indexOfField.has(f.typedvar.name)) {
           throw new Error(`Cannot re-define attribute: ${f.typedvar.name} in class ${subCls.name}`);
         }
         indexOfField.set(f.typedvar.name, i + lenSuperField);
+        newFields.push(f);
       });
 
       subCls.methods.forEach(m => {
@@ -527,7 +556,7 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
         ptrOfMethod.set(m.name, `$${subCls.name}$${m.name}`);
       });
       // let newSubCls = tcClsDef(subCls, variables, functions, classes);
-      let newSubCls = { ...subCls, indexOfField, indexOfMethod, ptrOfMethod }
+      let newSubCls = { ...subCls, fields: newFields, indexOfField, indexOfMethod, ptrOfMethod }
       queue.push(newSubCls);
     })
   }
@@ -550,7 +579,6 @@ export function tcProgram(p: Program<any>): Program<Type> {
   
   const vardefs = p.vardefs.map(s => tcVarDef(s, variables, classes));
   const clsdefs = processCls(p.clsdefs, variables, functions, classes);
-  // let clsdefs = p.clsdefs.map(s => tcClsDef(s, variables, functions, classes));
   const fundefs = p.fundefs.map(s => tcFuncDef(s, variables, functions, classes));
   
 

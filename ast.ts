@@ -80,9 +80,35 @@ export function isUnOp(maybeOp: string): maybeOp is UnOp {
   return maybeOp in unops;
 }
 
-export function isCls(maybeCls: Type): maybeCls is Type {
-  return (maybeCls !== "int") && (maybeCls !== "bool") && (maybeCls !== "none")
+export function isCls(maybeCls: Type): maybeCls is ObjType {
+  return (maybeCls as ObjType).class !== undefined;
+  // return "class" in (maybeCls as ObjType);
 }
+
+export function isSimpleType(maybeCls: Type): maybeCls is Type {
+  return (maybeCls === "int") || (maybeCls === "bool") || (maybeCls === "none");
+}
+
+
+export function isAssignable(src: Type, tar: Type): boolean {
+  /* 
+  if the type tar can be assigned to original type src 
+  */
+  return isTypeEqual(src, tar) || isSubType(src, tar);
+}
+
+export function isSubType(src: Type, tar: Type): boolean {
+  // return if tar is a subType of src
+  if (isCls(src)) {
+    return isTypeEqual(tar, "none");
+  }
+}
+
+export function isTypeEqual(typ1: Type, typ2: Type): boolean {
+  return getTypeStr(typ1) === getTypeStr(typ2);
+}
+
+
 
 
 export function getTypeStr(typ: Type): string {
