@@ -8,7 +8,7 @@ export type FunDef<A> =
   { name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A> }
 
 export type FuncBody<A> = 
-  { vardefs: VarDef<A>[],  stmts: Stmt<A>[] }
+  { vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
 
 export type TypedVar =
   | { name: string, typ: Type }
