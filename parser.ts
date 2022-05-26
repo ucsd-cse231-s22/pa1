@@ -1,11 +1,14 @@
 import { TreeCursor } from '@lezer/common';
 import { parser } from '@lezer/python';
-import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr, isCls } from './ast';
+import { assert } from 'console';
+import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr, isCls, ScopeVar } from './ast';
 import { FunDef, Program, Literal, LValue, ClsDef, isValidIdentifier } from './ast';
 import { ParseError } from './error';
 
 function isDecl(t: TreeCursor, s: string) {
-  if (t.type.name === "FunctionDefinition" || t.type.name === "ClassDefinition") {
+  if (t.type.name === "FunctionDefinition" || 
+    t.type.name === "ClassDefinition" ||
+    t.type.name === "ScopeStatement") {
     return t.type.name;
   }
   else if (t.type.name === "AssignStatement") {
@@ -127,11 +130,11 @@ export function traverseFunDef(t: TreeCursor, s: string, idSet: Set<any>): FunDe
   }
   t.nextSibling(); // Focus on Body
 
-  const [localvar, localfun, body] = traverseFuncBody(t, s, curIdSet);
+  const [localvar, localfun, decls, body] = traverseFuncBody(t, s, curIdSet);
   t.parent();      // Pop to FunctionDefinition
   return {
     name, params, ret,
-    body: { vardefs: localvar, fundefs: localfun, stmts: body }
+    body: { vardefs: localvar, fundefs: localfun, decls, stmts: body }
   };
 }
 
@@ -165,11 +168,12 @@ export function traverseClsDef(t: TreeCursor, s: string, idSet: Set<any>): ClsDe
 }
 
 export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
-  [VarDef<any>[], FunDef<any>[], Stmt<any>[]] {
+  [VarDef<any>[], FunDef<any>[], ScopeVar<any>[], Stmt<any>[]] {
   switch (t.node.type.name) {
     case "Body":  // function body
       let vardefs: VarDef<any>[] = [];
       let fundefs: FunDef<any>[] = [];
+      let decls: ScopeVar<any>[] = [];
       let stmts: Stmt<any>[] = []; 
       t.firstChild(); //focus on semicolon
       // if (!t.nextSibling()) { //in case of empty program
@@ -183,6 +187,8 @@ export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
         } else if (decl === "FunctionDefinition") {
           fundefs.push(traverseFunDef(t, s, idSet));
           // throw new Error("nested function not supported");
+        } else if (decl === "ScopeStatement") {
+          decls.push(traverseDecl(t, s, idSet));
         } else {
           break;
         }
@@ -200,8 +206,29 @@ export function traverseFuncBody(t: TreeCursor, s: string, idSet: Set<any>):
           stmts.push(traverseStmt(t, s));
       } while (t.nextSibling())
       t.parent();
-      return [vardefs, fundefs, stmts];
+      return [vardefs, fundefs, decls, stmts];
   }
+}
+
+export function traverseDecl(t: TreeCursor, s: string, idSet: Set<any>) {
+  t.firstChild();
+  if (t.name !== "global" && t.name !== "nonlocal") {
+    throw new Error(`Wrong scope identifier: ${t.name}`);
+  }
+  const nonlocal:boolean = t.name === "nonlocal";
+  assert(t.name !== "nonlocal"); // temporary
+  t.nextSibling();
+  const name = s.substring(t.from, t.to);
+  if (!isValidIdentifier(name)) {
+    throw new Error(`Invalid identifier: ${name}`);
+  } else if (idSet.has(name)) {
+    throw new Error(`Duplicate declaration of identifier ` +
+      `in the same scope: ${name}`);
+  } else {
+    idSet.add(name);
+  }
+  t.parent();
+  return { name, nonlocal };
 }
 
 export function traverseClsBody(t: TreeCursor, s: string, idSet: Set<any>):
@@ -371,8 +398,7 @@ export function traverseParameters(t: TreeCursor, s: string, idSet: Set<any>): T
     } else if (idSet.has(name)) {
       throw new Error(`Duplicate declaration of identifier ` +
         `in the same scope: ${name}`);
-    }
-    else {
+    } else {
       idSet.add(name);
     }
     t.firstChild();  // Enter TypeDef, foucs on semicolon

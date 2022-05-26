@@ -281,7 +281,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       //   }
       //   return argtyp;
       // });
-      return { ...e, a: funcInfo.ret, name: funcInfo.name,args: newArgs };
+      return { ...e, a: funcInfo.ret, name: funcInfo.name, args: newArgs };
     }
     case "getfield":
       return tcMemberExpr(e, variables, functions, classes);
@@ -437,17 +437,25 @@ export function returnable(stmt: Stmt<Type>): boolean {
 }
 
 export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
-  functions: FunctionsEnv, classes: ClassEnv, superF: string): FunDef<Type>[] {
+  functions: FunctionsEnv, classes: ClassEnv, namePrefix: string): FunDef<Type>[] {
   if (f.ret !== "none" && !f.body.stmts.some(returnable)) {
     throw new TypeError(`All path in this function/method ` +
       `must have a return statement: ${f.name}`);
   }
+  const newName = `${namePrefix}$${f.name}`;
   variables.addScope();
   functions.addScope();
   f.params.forEach(p => { variables.addDecl(p.name, p.typ) });
+  f.body.decls.forEach(d => {
+    const [found, typ] = variables.lookUpVar(d.name, Number(d.nonlocal));
+    if (!found) {
+      throw new Error(`not a ${d.nonlocal ? "nonlocal" : "global"} variable: ${d.name}`);
+    }
+    variables.addDecl(d.name, { tag: "ref", typ });
+  }) 
   const newVarDefs = f.body.vardefs.map(v => tcVarDef(v, variables, classes));
   const newFunDefs: FunDef<Type>[] = f.body.fundefs.map(nestF => 
-    tcNestedFuncDef(nestF, variables, functions, classes, f.name)).flat();
+    tcNestedFuncDef(nestF, variables, functions, classes, `${newName}$${f.name}`)).flat();
   const newStmts = f.body.stmts.map(bs => tcStmt(bs, variables, functions, classes, f.ret));
   const nonlocalVars: Expr<Type>[] = [];
   variables.getCurScope().forEach((typ, v) => {
@@ -458,7 +466,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
   })
   variables.removeScope();
   functions.removeScope();
-  const newName = `${superF}$${f.name}`
+  
   functions.addDecl(f.name, 
     new OneFun<Type>(newName, 
       f.params.map(p => p.typ), 
@@ -468,7 +476,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
 }
 
 export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, 
-  functions: FunctionsEnv, classes: ClassEnv): FunDef<Type>[] {
+  functions: FunctionsEnv, classes: ClassEnv, namePrefix: string = ""): FunDef<Type>[] {
   if (f.ret !== "none" && !f.body.stmts.some(returnable)) {
     throw new TypeError(`All path in this function/method ` +
       `must have a return statement: ${f.name}`);
@@ -476,9 +484,20 @@ export function tcFuncDef(f: FunDef<any>, variables: BodyEnv,
   variables.addScope();
   functions.addScope();
   f.params.forEach(p => { variables.addDecl(p.name, p.typ) });
+  f.body.decls.forEach(d => {
+    if (d.nonlocal) {
+      // no nonlocal vars in the outide function
+      throw new Error(`not a nonlocal variable: ${d.name}`);
+    }
+    const [found, typ] = variables.lookUpVar(d.name, Number(d.nonlocal));
+    if (!found) {
+      throw new Error(`not a global variable: ${d.name}`);
+    }
+    variables.addDecl(d.name, typ );
+  })
   const newVarDefs = f.body.vardefs.map(v => tcVarDef(v, variables, classes));
   const newFunDefs: FunDef<Type>[] = f.body.fundefs.map(nestF => 
-    tcNestedFuncDef(nestF, variables, functions, classes, f.name)).flat();
+    tcNestedFuncDef(nestF, variables, functions, classes, `${namePrefix}$${f.name}`)).flat();
   const newStmts = f.body.stmts.map(bs => tcStmt(bs, variables, functions, classes, f.ret));
   variables.removeScope();
   functions.removeScope();
@@ -524,11 +543,10 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
     if (m.name === "__init__" && m.params.length > 1) {
       throw new TypeError(`__init__ method does not accept arguments`);
     }
-    // m.params.shift(); // delete the self arg
     if (found && superClsEnv.funs.has(m.name)) {
       const superMethodInfo = superClsEnv.funs.get(m.name);
+      // TODO: params nums compare
       m.params.forEach((arg, i) => {
-        // equal 
         if (!assignable(arg.typ, superMethodInfo.params[i], classes) && arg.name !== "self") {
           throw new Error(`Method overriden with different type signature: ${c.name}`);
         }
@@ -538,7 +556,7 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
       }
     }
     functions.addDecl(m.name, new OneFun<Type>(m.name, m.params.map(p => p.typ), m.ret, []));
-    return tcFuncDef(m, variables, functions, classes);
+    return tcFuncDef(m, variables, functions, classes, c.name);
   }).flat();
 
   classes.addDecl(c.name, { 
@@ -550,30 +568,6 @@ export function tcClsDef(c: ClsDef<any>, variables: BodyEnv,
   return { ...c, methods: newMethods, fields: newFields };
 }
 
-export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): VarDef<Type> {
-  const rhs = tcLit(s.init);
-  local.addDecl(s.typedvar.name, s.typedvar.typ); // no redefinition error
-  if (!isCls(s.typedvar.typ)) {
-    if (s.typedvar.typ !== rhs.a) {
-      throw new TypeError(`Expect type '${s.typedvar.typ}'; ` +
-        `got type '${rhs.a}'`);
-    }
-  } 
-  else {
-    const clsTyp = s.typedvar.typ;
-    const clsName = getTypeStr(clsTyp)
-    const [found] = classes.lookUpVar(clsName, SearchScope.GLOBAL);
-    if (!found) {
-      throw new Error(`Invalid type annotation; ` + 
-        `there is no class named: ${clsName}`);
-    }
-    if (rhs.a !== "none") {
-      throw new TypeError(`Expect type '${clsName}'; ` +
-        `got type '${getTypeStr(rhs.a)}'`);
-    }
-  } 
-  return { ...s, init: rhs };
-}
 
 export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
   functions: FunctionsEnv, classes: ClassEnv) {
@@ -583,7 +577,7 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
       {
         name: "__init__", ret: "none",
         params: [{ name: "self", typ: { tag: "object", class: "object" } }],
-        body: { vardefs: [], fundefs: [], stmts: [{ tag: "pass" }] }
+        body: { vardefs: [], fundefs: [], decls: [], stmts: [{ tag: "pass" }] }
       }
     ],
     fields: [],
@@ -610,7 +604,7 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
       clsGraph.get(cls.super).add(cls);
   });
 
-  const queue:ClsDef<any>[] = [];
+  const queue: ClsDef<any>[] = [];
   const newClsDefs: ClsDef<any>[] = [];
   queue.push(objCls);
   while (queue.length !== 0) {
@@ -638,7 +632,7 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
           // compare the function?
           indexOfMethod.set(m.name, lenMethod);
           lenMethod = lenMethod + 1;
-        } 
+        }
         ptrOfMethod.set(m.name, `$${subCls.name}$${m.name}`);
       });
       // let newSubCls = tcClsDef(subCls, variables, functions, classes);
@@ -648,6 +642,32 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
   }
   return newClsDefs;
 }
+
+export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): VarDef<Type> {
+  const rhs = tcLit(s.init);
+  local.addDecl(s.typedvar.name, s.typedvar.typ); // no redefinition error
+  if (!isCls(s.typedvar.typ)) {
+    if (s.typedvar.typ !== rhs.a) {
+      throw new TypeError(`Expect type '${s.typedvar.typ}'; ` +
+        `got type '${rhs.a}'`);
+    }
+  } 
+  else {
+    const clsTyp = s.typedvar.typ;
+    const clsName = getTypeStr(clsTyp)
+    const [found] = classes.lookUpVar(clsName, SearchScope.GLOBAL);
+    if (!found) {
+      throw new Error(`Invalid type annotation; ` + 
+        `there is no class named: ${clsName}`);
+    }
+    if (rhs.a !== "none") {
+      throw new TypeError(`Expect type '${clsName}'; ` +
+        `got type '${getTypeStr(rhs.a)}'`);
+    }
+  } 
+  return { ...s, init: rhs };
+}
+
 
 export function tcProgram(p: Program<any>): Program<Type> {
   const variables = new Env<Type>();

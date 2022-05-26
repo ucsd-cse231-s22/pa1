@@ -8,10 +8,13 @@ export type FunDef<A> =
   { name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A> }
 
 export type FuncBody<A> = 
-  { vardefs: VarDef<A>[], fundefs?: FunDef<A>[], stmts: Stmt<A>[] }
+  { vardefs: VarDef<A>[], fundefs?: FunDef<A>[], decls?: ScopeVar<A>[], stmts: Stmt<A>[] }
 
 export type TypedVar =
   | { name: string, typ: Type }
+
+export type ScopeVar<A> = 
+  | { a?:A, name: string, nonlocal: boolean };
 
 export type ClsDef<A> = 
   { tag: "class", name: string, super: string, 

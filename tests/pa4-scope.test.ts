@@ -23,14 +23,14 @@ print(f())
     `, [`13`]);
 
     assertPrint("call a nested function inside class method", `
-    class A(object):
-        def f(self: A, a: int) -> int:
-            def g(a: int) -> int:
-                return a * 2
-            return g(a)
-    a: A = None
-    a = A()
-    print(a.f(4))
+class A(object):
+    def f(self: A, a: int) -> int:
+        def g(a: int) -> int:
+            return a * 2
+        return g(a)
+a: A = None
+a = A()
+print(a.f(4))
     `, [`8`]);
 
     assertPrint("call a function referencing a non-local variable", `
@@ -118,7 +118,7 @@ print(x)`, ["2"]);
 x:int = 1
 def f(x:int):
     global x
-    x = x + 1`, `Redefine`);
+    x = x + 1`, `Duplicate declaration`);
     assertPrint("global-order", `
 def f():
     y:int = 1

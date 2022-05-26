@@ -339,8 +339,13 @@ export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): strin
 
 export function codeGenCls(c: ClsDef<Type>, locals: Env, clsEnv: ClsEnv, indent: number): Array<string> {
   locals.set("self", true);
-  const methods = c.methods.map(m => 
-    codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)).flat();
+  const methods = c.methods.map(m => {
+    if (c.indexOfMethod.has(m.name)) {
+      return codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`);
+    } else { // a lifted nested function
+      return codeGenFun(m, locals, clsEnv, indent);
+    }
+  }).flat();
   // c.builtins.forEach((m, name) =>
   //   methods.push(...codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)))
   locals.delete("self");
@@ -363,6 +368,9 @@ export function codeGenTable(classes: ClsDef<Type>[], clsEnv: ClsEnv, indent: nu
   
   classes.forEach(c => {
     c.methods.forEach(m => {
+      if (!c.ptrOfMethod.has(m.name)) { // if not a method, a nested func
+        return
+      }
       const paramsStr = m.params.map(p => `(param i32)`).join(" ");
       const name = `${c.ptrOfMethod.get(m.name)}$type`;
       typeSigSet.add(`(type ${name} (func ${paramsStr} (result i32)))`)
