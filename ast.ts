@@ -23,14 +23,12 @@ export type ClsDef<A> =
     indexOfMethod?: Map<string, number>, 
     ptrOfMethod?: Map<string, string> }
 
-export type ObjType = { tag: "object", class: string }
-export type RefType = { tag: "ref", typ: Type }
+export type ObjType = { tag: "object", class: string, ref?: boolean }
 export type Type =
-  | "int"
-  | "bool"
-  | "none"
+  | { tag: "int", ref?:boolean}
+  | { tag: "bool", ref?: boolean }
+  | { tag: "none", ref?: boolean }
   | ObjType
-  | RefType
 
 export type Literal<A> = 
   | { a?: A, tag: "number", value: number }
@@ -85,20 +83,6 @@ export function isUnOp(maybeOp: string): maybeOp is UnOp {
   return maybeOp in unops;
 }
 
-export function isCls(maybeCls: Type): maybeCls is ObjType {
-  return (maybeCls as ObjType).class !== undefined;
-  // return "class" in (maybeCls as ObjType);
-}
-
-export function isRefType(maybeRef: Type): maybeRef is RefType {
-  return (maybeRef as RefType).tag === "ref";
-  // return "class" in (maybeCls as ObjType);
-}
-
-
-export function isSimpleType(maybeCls: Type): maybeCls is Type {
-  return (maybeCls === "int") || (maybeCls === "bool") || (maybeCls === "none");
-}
 
 
 export function isAssignable(src: Type, tar: Type): boolean {
@@ -111,7 +95,7 @@ export function isAssignable(src: Type, tar: Type): boolean {
 export function isSubType(src: Type, tar: Type): boolean {
   // return if tar is a subType of src
   if (isCls(src)) {
-    return isTypeEqual(tar, "none");
+    return isTypeEqual(tar, {tag: "none"});
   }
 }
 
@@ -121,10 +105,19 @@ export function isTypeEqual(typ1: Type, typ2: Type): boolean {
 
 
 export function getTypeStr(typ: Type): string {
-  if (typeof typ === "string")
-    return typ;
-  else
+  if (isSimpleType(typ))
+    return typ.tag;
+  else if (isCls(typ))
     return (typ as ObjType).class
+}
+
+export function isSimpleType(maybeCls: Type): boolean {
+  return (maybeCls.tag === "int") || (maybeCls.tag === "bool") || (maybeCls.tag === "none");
+}
+
+export function isCls(maybeCls: Type): maybeCls is ObjType {
+  return (maybeCls as ObjType).class !== undefined;
+  // return "class" in (maybeCls as ObjType);
 }
 
 export const keywords = new Set<string>([
@@ -141,6 +134,4 @@ export function isValidIdentifier(id: string): boolean {
     return false;
   }
   return idReg.test(id);
-
-
 }

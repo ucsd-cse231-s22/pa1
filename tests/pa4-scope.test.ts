@@ -162,3 +162,15 @@ f()
 print(x)`, [`3`]);
 
 });
+`
+def add_b():
+    def do_global():
+        nonlocal b
+        b = b + 1
+        print(b)
+    b:int = 0
+    do_global()
+    b=b+1
+    print(b)
+
+add_b()`

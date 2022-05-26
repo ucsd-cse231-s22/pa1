@@ -8,7 +8,12 @@ export function typeCheck(source: string) : Type {
   const tcp = tcProgram(parseProgram(source));
   const lastStmt = tcp.stmts[tcp.stmts.length - 1];
   if (lastStmt && lastStmt.tag === "expr") {
-    return lastStmt.expr.a;
+    const lastType = lastStmt.expr.a;
+    if (lastType.tag === "int" || lastType.tag === "bool" || lastType.tag === "none") {
+      return lastType.tag;
+    } else if (lastType.tag === "object") {
+      return CLASS(lastType.class);
+    }
   }
   else
     return "none";
@@ -45,7 +50,6 @@ type Type =
   | "bool"
   | "none"
   | { tag: "object", class: string }
-  | { tag: "ref", typ: Type }
 
 export const NUM : Type = "int";
 export const BOOL : Type = "bool";

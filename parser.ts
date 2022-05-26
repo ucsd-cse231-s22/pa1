@@ -121,7 +121,7 @@ export function traverseFunDef(t: TreeCursor, s: string, idSet: Set<any>): FunDe
   var curIdSet = new Set();
   var params = traverseParameters(t, s, curIdSet);
   t.nextSibling(); // Focus on Body or TypeDef
-  var ret: Type = "none";
+  var ret: Type = { tag: "none"};
   var maybeTD = t;
   if (maybeTD.type.name === "TypeDef") {
     t.firstChild();
@@ -372,7 +372,7 @@ export function traverseType(t: TreeCursor, s: string): Type {
       const name = s.substring(t.from, t.to);
       // return name;
       if (name === "int" || name === "bool" || name === "none") {
-        return name;
+        return { tag: name };
       } else {
         return { tag: "object", class: name };
       }

@@ -149,7 +149,7 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
         return [...initstmts, ...valStmts];
       }
       if (expr.name === "print") {
-        switch (expr.args[0].a) {
+        switch (expr.args[0].a.tag) {
           case "bool": toCall = "print_bool"; break;
           case "int": toCall = "print_num"; break;
           case "none": toCall = "print_none"; break;

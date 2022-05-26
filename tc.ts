@@ -4,7 +4,7 @@ making it easier(?) to add keywords like global and nonlocal
 This idea is borrowed from my classmate, Shanbin Ke.
 */
 import { ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, ObjType, TypedVar } from "./ast";
-import { isTypeEqual, isCls, getTypeStr, isAssignable, isRefType } from "./ast"
+import { isTypeEqual, isCls, getTypeStr, isAssignable } from "./ast"
 import { TypeError } from "./error"
 
 type FunctionsEnv = Env<OneFun<Type>>;
@@ -120,11 +120,11 @@ function isSubClass(superCls: Type, subCls: Type, classes: ClassEnv): boolean {
 export function tcLit(lit: Literal<any>): Literal<Type> {
   switch (lit.tag) {
     case "number":
-      return { ...lit, a: "int" };
+      return { ...lit, a: { tag: "int" } };
     case "bool":
-      return { ...lit, a: "bool" };
+      return { ...lit, a: { tag: "bool"} };
     case "none":
-      return { ...lit, a: "none" };
+      return { ...lit, a: { tag: "none" } };
   }
 }
 
@@ -168,7 +168,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         case "//":
         case "%":
           if (nLHStyp === "int" && nRHStyp === "int") {
-            return { ...e, a: "int", lhs: nLHS, rhs: nRHS };
+            return { ...e, a: { tag: "int" }, lhs: nLHS, rhs: nRHS };
           }
           else {
             throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`);
@@ -178,7 +178,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         case ">=":
         case "<=":
           if (nLHStyp === "int" && nRHStyp === "int") {
-            return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
+            return { ...e, a: { tag: "bool" }, lhs: nLHS, rhs: nRHS };
           }
           else {
             throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`);
@@ -186,7 +186,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         case "==":
         case "!=":
           if (nLHStyp === nRHStyp && !isCls(nLHS.a)) {
-            return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
+            return { ...e, a: { tag: "bool" }, lhs: nLHS, rhs: nRHS };
           }
           else {
             throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`);
@@ -195,10 +195,10 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         // case "or": return { ...e, a: "bool" };
         case "is":
           // TODO: "is" operation is not complete yet
-          if ((!isCls(nLHS.a) && nLHS.a != "none") || (!isCls(nRHS.a) && nRHS.a !== "none")) {
+          if ((!isCls(nLHS.a) && nLHS.a.tag !== "none") || (!isCls(nRHS.a) && nRHS.a.tag !== "none")) {
             throw new TypeError(`Cannot apply operator '${e.op}' on types '${nLHStyp}' and '${nRHStyp}'`)
           }
-          return { ...e, a: "bool", lhs: nLHS, rhs: nRHS };
+          return { ...e, a: { tag: "bool" }, lhs: nLHS, rhs: nRHS };
 
         // default: throw new Error(`Unhandled op ${e.op}`);
       }
@@ -209,12 +209,12 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
       switch (e.op) {
         case "-":
           if (typstr === "int")
-            return { ...e, a: "int", expr: nExpr };
+            return { ...e, a: { tag: "int" }, expr: nExpr };
           else
             throw new TypeError(`Cannot apply operator '${e.op}' on type '${typstr}'`);
         case "not":
           if (typstr === "bool")
-            return { ...e, a: "bool", expr: nExpr };
+            return { ...e, a: { tag: "bool" }, expr: nExpr };
           else
             throw new TypeError(`Cannot apply operator '${e.op}' on type '${typstr}'`);
         // default: throw new Error(`Unhandled op ${e.op}`);
@@ -227,7 +227,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         throw new ReferenceError(`Not a variable: ${e.name}`);
       var [found] = variables.lookUpVar(e.name, SearchScope.LOCAL);
       if (!found) {
-        variables.addDecl(e.name, { tag: "ref", typ });
+        variables.addDecl(e.name, typ);
       }
       return { ...e, a: typ };
 
@@ -237,7 +237,7 @@ export function tcExpr(e: Expr<any>, variables: BodyEnv, functions: FunctionsEnv
         if (e.args.length !== 1)
           throw new Error("print expects a single argument");
         newArgs = [tcExpr(e.args[0], variables, functions, classes)];
-        return { ...e, a: "none", args: newArgs };
+        return { ...e, a: { tag: "none" }, args: newArgs };
       }
       var [found, cls] = classes.lookUpVar(e.name, SearchScope.GLOBAL);
       if (found) {
@@ -415,7 +415,7 @@ export function tcCondBody(condbody: CondBody<any>, variables: BodyEnv,
   currentReturn: Type): CondBody<Type> {
   const newCond = tcExpr(condbody.cond, variables, functions, classes);
   const newBody = condbody.body.map(bs => tcStmt(bs, variables, functions, classes, currentReturn));
-  if (newCond.a !== "bool") {
+  if (newCond.a.tag !== "bool") {
     throw new TypeError(`Condition expression cannot be of type '${newCond.a}'`);
   }
   return { cond: newCond, body: newBody };
@@ -438,7 +438,7 @@ export function returnable(stmt: Stmt<Type>): boolean {
 
 export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
   functions: FunctionsEnv, classes: ClassEnv, namePrefix: string): FunDef<Type>[] {
-  if (f.ret !== "none" && !f.body.stmts.some(returnable)) {
+  if (f.ret.tag !== "none" && !f.body.stmts.some(returnable)) {
     throw new TypeError(`All path in this function/method ` +
       `must have a return statement: ${f.name}`);
   }
@@ -451,7 +451,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
     if (!found) {
       throw new Error(`not a ${d.nonlocal ? "nonlocal" : "global"} variable: ${d.name}`);
     }
-    variables.addDecl(d.name, { tag: "ref", typ });
+    variables.addDecl(d.name, typ );
   }) 
   const newVarDefs = f.body.vardefs.map(v => tcVarDef(v, variables, classes));
   const newFunDefs: FunDef<Type>[] = f.body.fundefs.map(nestF => 
@@ -459,7 +459,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
   const newStmts = f.body.stmts.map(bs => tcStmt(bs, variables, functions, classes, f.ret));
   const nonlocalVars: Expr<Type>[] = [];
   variables.getCurScope().forEach((typ, v) => {
-    if (isRefType(typ)) {
+    if (typ.ref !== undefined) {
       nonlocalVars.push({ a: typ, tag: "id", name: v });
       f.params.push({name:v, typ});
     }
@@ -477,7 +477,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
 
 export function tcFuncDef(f: FunDef<any>, variables: BodyEnv, 
   functions: FunctionsEnv, classes: ClassEnv, namePrefix: string = ""): FunDef<Type>[] {
-  if (f.ret !== "none" && !f.body.stmts.some(returnable)) {
+  if (f.ret.tag !== "none" && !f.body.stmts.some(returnable)) {
     throw new TypeError(`All path in this function/method ` +
       `must have a return statement: ${f.name}`);
   }
@@ -575,7 +575,7 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
     tag: "class", name: "object", super: null,
     methods: [
       {
-        name: "__init__", ret: "none",
+        name: "__init__", ret: { tag:"none" },
         params: [{ name: "self", typ: { tag: "object", class: "object" } }],
         body: { vardefs: [], fundefs: [], decls: [], stmts: [{ tag: "pass" }] }
       }
@@ -645,24 +645,24 @@ export function processCls(clsdefs: ClsDef<any>[], variables: BodyEnv,
 
 export function tcVarDef(s: VarDef<any>, local: BodyEnv, classes: ClassEnv): VarDef<Type> {
   const rhs = tcLit(s.init);
+  const rhsTyp = getTypeStr(rhs.a);
+  const varTypName = getTypeStr(s.typedvar.typ);
   local.addDecl(s.typedvar.name, s.typedvar.typ); // no redefinition error
   if (!isCls(s.typedvar.typ)) {
-    if (s.typedvar.typ !== rhs.a) {
-      throw new TypeError(`Expect type '${s.typedvar.typ}'; ` +
+    if (!isTypeEqual(s.typedvar.typ, rhs.a)) {
+      throw new TypeError(`Expect type '${varTypName}'; ` +
         `got type '${rhs.a}'`);
     }
   } 
   else {
-    const clsTyp = s.typedvar.typ;
-    const clsName = getTypeStr(clsTyp)
-    const [found] = classes.lookUpVar(clsName, SearchScope.GLOBAL);
+    const [found] = classes.lookUpVar(varTypName, SearchScope.GLOBAL);
     if (!found) {
       throw new Error(`Invalid type annotation; ` + 
-        `there is no class named: ${clsName}`);
+        `there is no class named: ${varTypName}`);
     }
-    if (rhs.a !== "none") {
-      throw new TypeError(`Expect type '${clsName}'; ` +
-        `got type '${getTypeStr(rhs.a)}'`);
+    if (rhsTyp !== "none") {
+      throw new TypeError(`Expect type '${varTypName}'; ` +
+        `got type '${rhsTyp}'`);
     }
   } 
   return { ...s, init: rhs };
@@ -689,7 +689,7 @@ export function tcProgram(p: Program<any>): Program<Type> {
   
 
   const stmts = p.stmts.map(s => {
-    const res = tcStmt(s, variables, functions, classes, "none");
+    const res = tcStmt(s, variables, functions, classes, {tag: "none"});
     return res;
   });
 
