@@ -3,11 +3,11 @@ import { NUM, NONE, CLASS } from "./helpers.test"
 
 describe("PA4 tests for nested function", () => {
     assertPrint("call a simple nested function", `
-    def f() -> int:
-        def g(a: int) -> int:
-            return a + 1
-        return g(4) + g(5)
-    print(f())
+def f() -> int:
+    def g(a: int) -> int:
+        return a + 1
+    return g(4) + g(5)
+print(f())
     `, [`11`]);
 
     assertPrint("call a deep nested function", `

@@ -45,6 +45,7 @@ type Type =
   | "bool"
   | "none"
   | { tag: "object", class: string }
+  | { tag: "ref", typ: Type }
 
 export const NUM : Type = "int";
 export const BOOL : Type = "bool";

@@ -8,7 +8,7 @@ export type FunDef<A> =
   { name: string, params?: TypedVar[], ret?: Type, body: FuncBody<A> }
 
 export type FuncBody<A> = 
-  { vardefs: VarDef<A>[], fundefs: FunDef<A>[], stmts: Stmt<A>[] }
+  { vardefs: VarDef<A>[], fundefs?: FunDef<A>[], stmts: Stmt<A>[] }
 
 export type TypedVar =
   | { name: string, typ: Type }
@@ -21,11 +21,13 @@ export type ClsDef<A> =
     ptrOfMethod?: Map<string, string> }
 
 export type ObjType = { tag: "object", class: string }
+export type RefType = { tag: "ref", typ: Type }
 export type Type =
   | "int"
   | "bool"
   | "none"
   | ObjType
+  | RefType
 
 export type Literal<A> = 
   | { a?: A, tag: "number", value: number }
@@ -85,6 +87,12 @@ export function isCls(maybeCls: Type): maybeCls is ObjType {
   // return "class" in (maybeCls as ObjType);
 }
 
+export function isRefType(maybeRef: Type): maybeRef is RefType {
+  return (maybeRef as RefType).tag === "ref";
+  // return "class" in (maybeCls as ObjType);
+}
+
+
 export function isSimpleType(maybeCls: Type): maybeCls is Type {
   return (maybeCls === "int") || (maybeCls === "bool") || (maybeCls === "none");
 }
@@ -109,11 +117,27 @@ export function isTypeEqual(typ1: Type, typ2: Type): boolean {
 }
 
 
-
-
 export function getTypeStr(typ: Type): string {
   if (typeof typ === "string")
     return typ;
   else
     return (typ as ObjType).class
+}
+
+export const keywords = new Set<string>([
+  "int", "bool", "None", "def", "if", "while", "else", "for", "elif", "return", "class",
+  "global", "nonlocal", "str", "list", "import", "try", "except", "False", "True", "and",
+  "as", "assert", "async", "await", "break", "continue", "del", "finally", "from", "in",
+  "is", "lambda", "not", "or", "pass", "raise", "with", "yield"
+]);
+
+const idReg = /^[a-zA-Z\_][0-9a-zA-Z_]*/;
+
+export function isValidIdentifier(id: string): boolean {
+  if (keywords.has(id)) {
+    return false;
+  }
+  return idReg.test(id);
+
+
 }

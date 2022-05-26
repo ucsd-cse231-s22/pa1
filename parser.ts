@@ -1,7 +1,7 @@
 import { TreeCursor } from '@lezer/common';
 import { parser } from '@lezer/python';
 import { TypedVar, Stmt, Expr, Type, isOp, isUnOp, CondBody, VarDef, MemberExpr, isCls } from './ast';
-import { FunDef, Program, Literal, LValue, ClsDef } from './ast';
+import { FunDef, Program, Literal, LValue, ClsDef, isValidIdentifier } from './ast';
 import { ParseError } from './error';
 
 function isDecl(t: TreeCursor, s: string) {
@@ -78,11 +78,12 @@ export function traverseProgram(t: TreeCursor, s: string,
 export function traverseVarDef(t: TreeCursor, s: string, idSet: Set<any>): VarDef<any> {
   t.firstChild(); // focused on name (the first child)
   var name = s.substring(t.from, t.to);
-  if (idSet.has(name)) {
+  if (!isValidIdentifier(name)) {
+    throw new Error(`Invalid identifier: ${name}`);
+  } else if (idSet.has(name)) {
     throw new Error(`Duplicate declaration of identifier ` +
       `in the same scope: ${name}`);
-  }
-  else {
+  } else {
     idSet.add(name);
   }
   t.nextSibling(); // must be Typedef
@@ -105,11 +106,12 @@ export function traverseFunDef(t: TreeCursor, s: string, idSet: Set<any>): FunDe
   t.firstChild();  // Focus on def
   t.nextSibling(); // Focus on name of function
   var name = s.substring(t.from, t.to);
-  if (idSet.has(name)) {
+  if (!isValidIdentifier(name)) {
+    throw new Error(`Invalid identifier: ${name}`);
+  } else if (idSet.has(name)) {
     throw new Error(`Duplicate declaration of identifier ` +
       `in the same scope: ${name}`);
-  }
-  else {
+  } else {
     idSet.add(name);
   }
   t.nextSibling(); // Focus on ParamList
@@ -138,11 +140,12 @@ export function traverseClsDef(t: TreeCursor, s: string, idSet: Set<any>): ClsDe
   t.firstChild(); // focus on class
   t.nextSibling(); // focus on class name
   var name = s.substring(t.from, t.to);
-  if (idSet.has(name)) {
+  if (!isValidIdentifier(name)) {
+    throw new Error(`Invalid identifier: ${name}`);
+  } else if (idSet.has(name)) {
     throw new Error(`Duplicate declaration of identifier ` +
       `in the same scope: ${name}`);
-  }
-  else {
+  } else {
     idSet.add(name);
   }
   var curIdSet = new Set();
@@ -363,7 +366,9 @@ export function traverseParameters(t: TreeCursor, s: string, idSet: Set<any>): T
     if (nextTagName !== "TypeDef") {
       throw new Error("Missed type annotation for parameter " + name)
     };
-    if (idSet.has(name)) {
+    if (!isValidIdentifier(name)) {
+      throw new Error(`Invalid identifier: ${name}`);
+    } else if (idSet.has(name)) {
       throw new Error(`Duplicate declaration of identifier ` +
         `in the same scope: ${name}`);
     }
