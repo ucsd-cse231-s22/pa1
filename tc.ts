@@ -428,7 +428,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
   const newName = `${namePrefix}$${f.name}`;
   variables.addScope();
   functions.addScope();
-  const newDecls: ScopeVar<Type>[] = []
+  // const newDecls: ScopeVar<Type>[] = []
   f.params.forEach(p => { variables.addDecl(p.name, p.typ) });
   f.body.decls.forEach(d => {
     let [found, typ] = variables.lookUpVar(d.name, SearchScope.GLOBAL);
@@ -448,7 +448,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
       newTyp = { ...typ, ref: true };
     }
     variables.addDecl(d.name, newTyp);
-    newDecls.push({ ...d, a: newTyp });
+    // newDecls.push({ ...d, a: newTyp });
   }) 
   const newVarDefs = f.body.vardefs.map(v => tcVarDef(v, variables, classes));
   const newFunDefs: FunDef<Type>[] = f.body.fundefs.map(nestF => 
@@ -493,7 +493,7 @@ export function tcNestedFuncDef(f: FunDef<any>, variables: BodyEnv,
     if (!found)
       variables.addDecl(v.name, v.a);
   });
-  newFunDefs.push({ ...f, name: newName, body: { vardefs: newVarDefs, decls: newDecls, stmts: newStmts } });
+  newFunDefs.push({ ...f, name: newName, body: { vardefs: newVarDefs, stmts: newStmts } });
   return newFunDefs;
 }
 
@@ -508,7 +508,7 @@ export function tcFuncDef(f: FunDef<any>, variables: BodyEnv,
     newName = `${namePrefix}$${f.name}`;
   variables.addScope();
   functions.addScope();
-  const newDecls: ScopeVar<Type>[] = [];
+  // const newDecls: ScopeVar<Type>[] = [];
   f.params.forEach(p => { variables.addDecl(p.name, p.typ) });
   f.body.decls.forEach(d => {
     if (d.nonlocal) {
@@ -521,7 +521,7 @@ export function tcFuncDef(f: FunDef<any>, variables: BodyEnv,
     }
     // only global allowed, no type change, no ref in typ.
     variables.addDecl(d.name, typ );
-    newDecls.push({ ...d, a: typ });
+    // newDecls.push({ ...d, a: typ });
   })
   const newVarDefs = f.body.vardefs.map(v => tcVarDef(v, variables, classes));
   const newFunDefs: FunDef<Type>[] = f.body.fundefs.map(nestF => 
@@ -550,7 +550,7 @@ export function tcFuncDef(f: FunDef<any>, variables: BodyEnv,
   
   variables.removeScope();
   functions.removeScope();
-  newFunDefs.push({ ...f, body: { vardefs: newVarDefs, decls:newDecls, stmts: newStmts } });
+  newFunDefs.push({ ...f, body: { vardefs: newVarDefs, stmts: newStmts } });
   return newFunDefs;
 }
 

@@ -333,8 +333,10 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   // Construct the environment for the function body
   const variables = variableNames(f.body.vardefs);
   f.body.vardefs.forEach(v => withParamsAndVariables.set(v.typedvar.name, v.typedvar.typ.refed));
-  f.params.forEach(p => withParamsAndVariables.set(p.name, isRefType(p.typ)&&p.typ.ref));
-  // f.body.decls.forEach(d => withParamsAndVariables.set(d.name, d.nonlocal));
+  f.params.forEach(p => {
+    let flag = p.typ.ref ? p.typ.ref : p.typ.refed;
+    withParamsAndVariables.set(p.name, flag);
+  });
 
   // Construct the code for params and variable declarations in the body
   let params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
