@@ -23,11 +23,11 @@ export type ClsDef<A> =
     indexOfMethod?: Map<string, number>, 
     ptrOfMethod?: Map<string, string> }
 
-export type ObjType = { tag: "object", class: string, ref?: boolean }
+export type ObjType = { tag: "object", class: string, ref?: boolean, refed?: boolean }
 export type Type =
-  | { tag: "int", ref?:boolean}
-  | { tag: "bool", ref?: boolean }
-  | { tag: "none", ref?: boolean }
+  | { tag: "int", ref?: boolean, refed?: boolean}
+  | { tag: "bool", ref?: boolean, refed?: boolean}
+  | { tag: "none", ref?: boolean, refed?: boolean }
   | ObjType
 
 export type Literal<A> = 
@@ -42,8 +42,11 @@ export type CondBody<A> =
 export type MemberExpr<A> = 
   { a?: A, tag: "getfield", obj: Expr<A>, field: string }
 
-export type LValue<A> = 
+export type IdVar<A> = 
   | { a?: A, tag: "id", name: string, global?: boolean }
+
+export type LValue<A> = 
+  | IdVar<A>
   | MemberExpr<A>
 
 export type Stmt<A> =
@@ -59,7 +62,7 @@ export type Expr<A> =
   | { a?: A, tag: "literal", value: Literal<A> }
   | { a?: A, tag: "binop", op: BinOp, lhs: Expr<A>, rhs: Expr<A> }
   | { a?: A, tag: "unop", op: UnOp, expr: Expr<A> }
-  | { a?: A, tag: "id", name: string, global?: boolean }
+  | IdVar<A>
   | { a?: A, tag: "call", name: string, args: Expr<A>[] }
   | MemberExpr<A>
   | { a?: A, tag: "method", obj: Expr<A>, name: string, args: Expr<A>[]}
@@ -111,12 +114,17 @@ export function getTypeStr(typ: Type): string {
     return (typ as ObjType).class
 }
 
-export function isSimpleType(maybeCls: Type): boolean {
-  return (maybeCls.tag === "int") || (maybeCls.tag === "bool") || (maybeCls.tag === "none");
+export function isSimpleType(maybeTyp: Type): boolean {
+  return (maybeTyp.tag === "int") || (maybeTyp.tag === "bool") || (maybeTyp.tag === "none");
 }
 
 export function isCls(maybeCls: Type): maybeCls is ObjType {
   return (maybeCls as ObjType).class !== undefined;
+  // return "class" in (maybeCls as ObjType);
+}
+
+export function isRefType(maybeTyp: Type): boolean {
+  return maybeTyp.ref !== undefined;
   // return "class" in (maybeCls as ObjType);
 }
 

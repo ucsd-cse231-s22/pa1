@@ -1,5 +1,5 @@
 import wabt from 'wabt';
-import { BinOp, ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, getTypeStr } from "./ast";
+import { BinOp, ClsDef, CondBody, Expr, FunDef, Literal, MemberExpr, Program, Stmt, Type, VarDef, getTypeStr, isRefType, TypedVar } from "./ast";
 import { parseProgram } from './parser';
 import { tcProgram } from './tc';
 
@@ -89,6 +89,19 @@ export function codeGenLit(lit: Literal<Type>): Array<string> {
 //   return undefined;
 // }
 
+export function codeGenArgs(args: Expr<Type>[], locals: Env, clsEnv: ClsEnv): Array<string> {
+  return args.map(arg => {
+    if (arg.tag === "id") {
+      if (locals.has(arg.name))
+        return `(local.get $${arg.name})`;
+      else
+        return `(global.get $${arg.name})`;
+    }
+    else
+      return codeGenExpr(arg, locals, clsEnv);
+  }).flat();
+}
+
 export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Array<string> {
   switch (expr.tag) {
     case "literal":
@@ -96,7 +109,12 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
     case "id":
       // Since we type-checked for making sure all variable exist, here we
       // just check if it's a local variable and assume it is global if not
-      if (locals.has(expr.name)) { return [`(local.get $${expr.name})`]; }
+      if (locals.has(expr.name)) { 
+        if (locals.get(expr.name)) {
+          return [`(local.get $${expr.name})`, `(i32.load)`];
+        }
+        return [`(local.get $${expr.name})`];
+       }
       else { return [`(global.get $${expr.name})`]; }
     case "binop": {
       const lhsExprs = codeGenExpr(expr.lhs, locals, clsEnv);
@@ -113,7 +131,8 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
         //   throw new Error(`Unhandled or unknown op: ${expr.op}`);
       }
     case "call":
-      var valStmts = expr.args.map(e => codeGenExpr(e, locals, clsEnv)).flat();
+      // var valStmts = expr.args.map(e => codeGenExpr(e, locals, clsEnv)).flat();
+      var valStmts = codeGenArgs(expr.args, locals, clsEnv);
       let toCall = expr.name;
       if (clsEnv.has(expr.name)) { // this is an object constructor
         const initstmts: Array<string> = [];
@@ -149,11 +168,14 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
         return [...initstmts, ...valStmts];
       }
       if (expr.name === "print") {
-        switch (expr.args[0].a.tag) {
+        const arg = expr.args[0];
+        switch (arg.a.tag) {
           case "bool": toCall = "print_bool"; break;
           case "int": toCall = "print_num"; break;
           case "none": toCall = "print_none"; break;
         }
+        if (arg.tag === "id" && locals.get(arg.name))
+          valStmts.push(`(i32.load)`);
       }
       valStmts.push(`(call $${toCall})`);
       return valStmts;
@@ -235,7 +257,14 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
     case "assign":
       var valStmts: Array<string> = codeGenExpr(stmt.value, locals, clsEnv);
       if (stmt.target.tag === "id") {
-        if (locals.has(stmt.target.name)) { valStmts.push(`(local.set $${stmt.target.name})`); }
+        if (locals.has(stmt.target.name)) { 
+          if (locals.get(stmt.target.name)) {
+            valStmts.unshift(`(local.get $${stmt.target.name})`);
+            valStmts.push(`(i32.store)`); 
+          }
+          else
+            valStmts.push(`(local.set $${stmt.target.name})`); 
+        }
         else { valStmts.push(`(global.set $${stmt.target.name})`); }
       }
       else if (stmt.target.tag === "getfield") {
@@ -302,15 +331,36 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
 
   // Construct the environment for the function body
   const variables = variableNames(f.body.vardefs);
-  variables.forEach(v => withParamsAndVariables.set(v, true));
-  f.params.forEach(p => withParamsAndVariables.set(p.name, true));
+  f.body.vardefs.forEach(v => withParamsAndVariables.set(v.typedvar.name, v.typedvar.typ.refed));
+  f.params.forEach(p => withParamsAndVariables.set(p.name, isRefType(p.typ)&&p.typ.ref));
+  // f.body.decls.forEach(d => withParamsAndVariables.set(d.name, d.nonlocal));
 
   // Construct the code for params and variable declarations in the body
   let params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
   // if (methodName) {
   //   params = `(param $self i32) ` + params;
   // }
-  const varDecls = variables.map(v => `(local $${v} i32)`).map(v => addIndent(v, indent + 1)).join("\n");
+  const varDecls = variables.map(v => {
+    return addIndent(`(local $${v} i32)`, indent + 1)
+  }).join("\n");
+
+  const paramAssign = f.params.map(p => {
+    const paramStmt = [];
+    if (p.typ.refed) {
+      paramStmt.push(
+        `(global.get $heap)`, 
+        `(local.get $${p.name})`, 
+        `(i32.store)`,
+        `(global.get $heap) ;; addr of param ${p.name}`, 
+        `(local.set $${p.name})`,
+        `(global.get $heap)`, 
+        `(i32.add (i32.const 4))`,
+        `(global.set $heap)`, 
+      )
+    }
+    return paramStmt.map(s => addIndent(s, indent + 1));
+  }).flat().join("\n");
+
   const varAssign = f.body.vardefs.map(v => codeGenVars(v, withParamsAndVariables, indent + 1)).join("\n");
 
   const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables, clsEnv, indent + 1)).flat();
@@ -322,6 +372,7 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   return [`(func $${fname} ${params} (result i32)`,
   addIndent(`(local $scratch i32)`, indent + 1),
   varDecls,
+  paramAssign,
   varAssign,
   stmtsBody,
   addIndent(`(i32.const 0))`, indent + 1)].filter(s => s.length !== 0);
@@ -331,6 +382,19 @@ export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): strin
   var valStmts: Array<string> = codeGenLit(v.init).flat();
   // valStmts = valStmts.concat();
   if (locals.has(v.typedvar.name)) {
+    if (v.typedvar.typ.refed) {
+      // put on the heap
+      valStmts.push(
+        `(local.set $scratch)`,
+        `(global.get $heap)`,
+        `(local.get $scratch)`,
+        `(i32.store)`,
+        `(global.get $heap) ;; addr of the value`,
+        `(global.get $heap)`,
+        `(i32.add (i32.const 4))`,
+        `(global.set $heap)`
+      );
+    }
     valStmts.push(`(local.set $${v.typedvar.name})`);
   }
   else { valStmts.push(`(global.set $${v.typedvar.name})`); }

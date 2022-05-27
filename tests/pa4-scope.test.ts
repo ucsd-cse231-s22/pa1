@@ -34,30 +34,30 @@ print(a.f(4))
     `, [`8`]);
 
     assertPrint("call a function referencing a non-local variable", `
-    def f(a: int) -> int:
-        def g(b: int) -> int:
-            return a + b
-        return g(4)
-    print(f(3))
+def f(a: int) -> int:
+    def g(b: int) -> int:
+        return a + b
+    return g(4)
+print(f(3))
     `, [`7`]);
 
     assertPrint("call a function referencing a global variable", `
-    a: int = 1
-    def f() -> int:
-        def g(b: int) -> int:
-            return a + b
-        return g(4)
-    print(f())
+a: int = 1
+def f() -> int:
+    def g(b: int) -> int:
+        return a + b
+    return g(4)
+print(f())
     `, [`5`]);
 
     assertPrint("call a function writing to a non local variable", `
-    def f(a: int) -> int:
-        def g(b: int) -> int:
-            nonlocal a
-            a = a + 3
-            return a + b
-        return g(2) + g(2)
-    print(f(1))
+def f(a: int) -> int:
+    def g(b: int) -> int:
+        nonlocal a
+        a = a + 3
+        return a + b
+    return g(2) + g(2)
+print(f(1))
     `, [`15`]);
 
 
@@ -75,18 +75,18 @@ print(a.f(4))
 
 
     assertPrint("call a deep nested function reading and writing to same non local variable", `
-    def f(a: int) -> int:
-        def g(b: int) -> int:
-            def h(c: int) -> int:
-                nonlocal b
-                return a + b
-            def h1(c: int) -> int:
-                nonlocal b
-                b = b + 3
-                return a + b
-            return h(3) + h1(3)
-        return g(2)
-    print(f(1))
+def f(a: int) -> int:
+    def g(b: int) -> int:
+        def h(c: int) -> int:
+            nonlocal b
+            return a + b
+        def h1(c: int) -> int:
+            nonlocal b
+            b = b + 3
+            return a + b
+        return h(3) + h1(3)
+    return g(2)
+print(f(1))
     `, [`9`]);
 
     assertPrint("call a deep nested function writing to a global variable", `
@@ -162,7 +162,21 @@ f()
 print(x)`, [`3`]);
 
 });
-`
+
+describe("PA4 tests for global and nonlocal", () => {
+    // 1
+    assertFailContain("global-var", `
+def add_b():
+    global b
+    def do_global():
+        b = b + 1
+        print(b)
+    b = 0
+    do_global()
+    print(b)
+b:int = 0
+add_b()`, `not assign`);
+    assertPrint("global variable", `
 def add_b():
     def do_global():
         nonlocal b
@@ -172,5 +186,64 @@ def add_b():
     do_global()
     b=b+1
     print(b)
+add_b()`, ["1", "2"]);
+    assertPrint("nested function in class", `
+class A(object):
+    def cnt(self:A, x:int)->int:
+        def getone()->int:
+            return 1
+        return getone() + x
+class B(A):
+    def cnt(self:B, x:int)->int:
+        return x + 1
+b:B = None
+b = B()
+print(b.cnt(5))`, [`6`]);
+    assertFailContain("no-scope", `
+global x
+x:int = 5`, `not parse`);
+    assertPrint("nonlocal-in-nested-1", `
+def cnt(x:int)->int:
+    y:int = 1
+    def getone()->int:
+        def h()->int:
+            nonlocal y
+            return 1
+        return 1
+    return getone() + x
+print(cnt(1))
+`, [`2`]);
+    assertPrint("nonlocal-in-nested-2", `
+def cnt(x:int)->int:
+    y:int = 1
+    def getone()->int:
+        nonlocal y
+        def h()->int:
+            nonlocal y
+            return 1
+        return 1
+    return getone() + x
+print(cnt(1))
+`, [`2`]);
+    assertPrint("global-in-nested-2", `
+class A(object):
+    x:int = 1
+    def get_x(self:A)->int:
+        self.x = self.x+1
+        return self.x
 
-add_b()`
+def inc(a:A)->int:
+    a.x = a.x + 1
+    return a.x
+
+def f():
+    a:A=None
+    def g():
+        x:int = 1
+        x = inc(a)
+    a = A()
+    g()
+    print(a.x)
+f()`, [`2`]);
+
+});

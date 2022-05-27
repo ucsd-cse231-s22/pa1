@@ -216,7 +216,6 @@ export function traverseDecl(t: TreeCursor, s: string, idSet: Set<any>) {
     throw new Error(`Wrong scope identifier: ${t.name}`);
   }
   const nonlocal:boolean = t.name === "nonlocal";
-  assert(t.name !== "nonlocal"); // temporary
   t.nextSibling();
   const name = s.substring(t.from, t.to);
   if (!isValidIdentifier(name)) {
