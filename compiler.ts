@@ -189,7 +189,8 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
       selfVar += 1;
       selfVarMax = selfVar > selfVarMax ? selfVar : selfVarMax;
-      const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
+      // const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
+      const argInstrs = codeGenArgs(expr.args, locals, clsEnv).flat();
       selfVar -= 1
       let toCallIdx = cls.indexOfMethod.get(expr.name);
       return [...objStmt, // self
