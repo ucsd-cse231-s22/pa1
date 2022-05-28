@@ -245,5 +245,52 @@ def f():
     g()
     print(a.x)
 f()`, [`2`]);
-
+    assertPrint("deep-nested", `
+def f()->int:
+    a:int = 96
+    def g():
+        nonlocal a
+        def h():
+            nonlocal a
+            def h1():
+                nonlocal a
+                a = a + 1
+            h1()
+            a = a + 1
+        h()
+        a = a + 1
+    g()
+    a = a + 1
+    return a
+print(f())
+`, [`100`]);
+    assertPrint("deep-nested-2", `
+def f(a:int)->int:
+    def g():
+        nonlocal a
+        def h():
+            nonlocal a
+            def h1():
+                nonlocal a
+                a = a + 1
+            h1()
+            a = a + 1
+        h()
+        a = a + 1
+    g()
+    a = a + 1
+    return a
+def g():
+    a:int = 96
+    def h():
+        nonlocal a
+        def h1():
+            nonlocal a
+            a = a + 1
+        h1()
+        a = a + 1
+    h()
+    a = a + 1
+print(f(96))
+`, [`100`]);
 });

@@ -78,16 +78,6 @@ export function codeGenLit(lit: Literal<Type>): Array<string> {
   }
 }
 
-// export function getInitFunc(cls: ClsDef<Type>): FunDef<Type> {
-//   let i = 0;
-//   let len = cls.methods.length;
-//   for (i ; i < len; i ++) {
-//     if (cls.methods[i].name === "__init__") {
-//       return cls.methods[i];
-//     }
-//   }
-//   return undefined;
-// }
 
 export function codeGenArgs(args: Expr<Type>[], locals: Env, clsEnv: ClsEnv): Array<string> {
   return args.map(arg => {
@@ -127,8 +117,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       switch (expr.op) {
         case "-": return ["(i32.const 0)", ...unaryStmts, "(i32.sub)"];
         case "not": return ["(i32.const 1)", ...unaryStmts, "(i32.sub)"];
-        // default:
-        //   throw new Error(`Unhandled or unknown op: ${expr.op}`);
       }
     case "call":
       // var valStmts = expr.args.map(e => codeGenExpr(e, locals, clsEnv)).flat();
@@ -157,11 +145,9 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
           `(i32.add (i32.const ${clsdef.fields.length * 4 + 4}))`,
           `(global.set $heap)`,
         );
-        // var toCall = clsdef.ptrOfMethod.get("__init__");
         let toCallIdx = clsdef.indexOfMethod.get("__init__");
         valStmts.push(
           `(i32.add (i32.const ${tableIdx}) (i32.const ${toCallIdx})) ;; get the index of the function in table`, 
-          // `(call $${clsdef.name}$${toCall})`, 
           `(call_indirect (type ${clsdef.ptrOfMethod.get("__init__")}$type))`,
           `(local.set $scratch)`
         );
@@ -189,13 +175,11 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
       const objStmt = codeGenExpr(expr.obj, locals, clsEnv);
       selfVar += 1;
       selfVarMax = selfVar > selfVarMax ? selfVar : selfVarMax;
-      // const argInstrs = expr.args.map(a => codeGenExpr(a, locals, clsEnv)).flat();
       const argInstrs = codeGenArgs(expr.args, locals, clsEnv).flat();
       selfVar -= 1
       let toCallIdx = cls.indexOfMethod.get(expr.name);
       return [...objStmt, // self
         `(global.set $self${selfVar})`, 
-        // TODO: for every class, a global var, still may be overwritten
         `(global.get $self${selfVar})`, 
         `(call $check_init)`,
         ...argInstrs, 
@@ -203,7 +187,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env, clsEnv: ClsEnv): Arra
         `(i32.load) ;; vtable`, 
         `(i32.add (i32.const ${toCallIdx}))`, 
         `(call_indirect (type ${cls.ptrOfMethod.get(expr.name)}$type))`
-        // `(call $${getTypeStr(expr.obj.a)}$${expr.name})`
       ];
     }
 }
@@ -223,7 +206,6 @@ export function codeGenCondBody(condbody: CondBody<Type>, locals: Env, clsEnv: C
   const cond = codeGenExpr(condbody.cond, locals, clsEnv).map(s => addIndent(s, indent));
   const body = condbody.body.map(s => codeGenStmt(s, locals, clsEnv, indent + 2)).flat();
 
-  // let stmt = cond.concat([`(if`, `(then`, ...body]);
   let stmt = [...cond,
     addIndent(`(if`, indent),
     addIndent(`(then`, indent + 1),
@@ -273,15 +255,6 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
         valStmts = tarStmts.concat(valStmts);
         valStmts.push(`(i32.store)`)
       }
-      // valStmts = valStmts.concat(codeGenExpr(stmt.value, locals, clsEnv));
-      // if (stmt.target.tag === "id") {
-      //   if (locals.has(stmt.target.name)) { valStmts.push(`(local.set $${stmt.target.name})`); }
-      //   else { valStmts.push(`(global.set $${stmt.target.name})`); }
-      // }
-      // else if (stmt.target.tag === "getfield") {
-      //   const tarStmt = codeGenMemberExpr(stmt.target, locals, clsEnv);
-      //   valStmts.concat();
-      // }
       else {
         throw new Error("not implemented");
       }
@@ -302,7 +275,6 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
           addIndent(`(else`, indent + 1),
           ...elifcondbody,
           ...elsestmt,
-          // addIndent(`(br 0)`, indent + 2),
           addIndent(`)`, indent + 1),
           addIndent(`)`, indent)
         ];
@@ -311,18 +283,9 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, clsEnv: ClsEnv, inden
       ];
     case "while":
       const whilecondbody = codeGenCondBody(stmt.whilestmt, locals, clsEnv, indent + 2, "while");
-      // let cond = codeGenExpr(stmt.whilestmt.cond, locals, indent + 2);
-      // const body = stmt.whilestmt.body.map(s => codeGenStmt(s, locals, indent + 4)).flat();
       return [addIndent(`(block`, indent),
         addIndent(`(loop`, indent + 1),
-        // ...cond, 
-        // addIndent(`(if`, indent + 2),
-        // addIndent(`(then`, indent + 3),
-        // ...body, 
-        // addIndent(`(br 1))`, indent + 4),
         ...whilecondbody,
-        // addIndent(`(else`, indent + 3),
-        // addIndent(`(br 2))`, indent + 4),
         addIndent(`)))`, indent)];
   }
 }
@@ -331,25 +294,32 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
 
   // Construct the environment for the function body
+  /*
+  |-------------------------------------------------------------------------------------------------------|
+  | CodeGen    |    params:    |     vardef       |      params      |      params     |      global      |
+  |            |   original    |     original     |   nonlocal decl  |   nonlocal use  |   use or decls   |
+  |-------------------------------------------------------------------------------------------------------|
+  | ref        |   undefined   |   undefined      |       True       |     False       |         /        | ref is whether this var is nonlocal
+  | refed      |   true/false  |   True / False   |   True / False   |     False       |         /        | refed is whether this var is used in the nested function
+  | in funcdef |     wrap if refed is true        |  already wrapped |   don't wrap    |         /        | wrap means putting the var in the heap and use load store to access it
+  |            |    add in locals with refed      |         add in locals with ref     |   not in locals  | locals with T/F means whether the var is wrapped
+  | use by id  | load if refed is true, else get  |       load       |      get        |    global.get    | => if true in locals, load; else get  
+  | assign tar | store if refed is true, else set |       store      |       /         |    global.set    | => if true in locals, store; else set  
+  | as arg     |                      directly local.get                               |    global.get    |  
+  |-------------------------------------------------------------------------------------------------------|
+ */
   const variables = variableNames(f.body.vardefs);
   f.body.vardefs.forEach(v => withParamsAndVariables.set(v.typedvar.name, v.typedvar.typ.refed));
   f.params.forEach(p => {
-    let flag = p.typ.ref ? p.typ.ref : p.typ.refed;
+    let flag = isRefType(p.typ) ? p.typ.ref : p.typ.refed;
     withParamsAndVariables.set(p.name, flag);
   });
 
   // Construct the code for params and variable declarations in the body
   let params = f.params.map(p => `(param $${p.name} i32)`).join(" ");
-  // if (methodName) {
-  //   params = `(param $self i32) ` + params;
-  // }
-  const varDecls = variables.map(v => {
-    return addIndent(`(local $${v} i32)`, indent + 1)
-  }).join("\n");
-
-  const paramAssign = f.params.map(p => {
+  const paramWrap = f.params.map(p => {
     const paramStmt = [];
-    if (p.typ.refed) {
+    if (!p.typ.ref && p.typ.refed) {
       paramStmt.push(
         `(global.get $heap)`, 
         `(local.get $${p.name})`, 
@@ -364,18 +334,20 @@ export function codeGenFun(f: FunDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
     return paramStmt.map(s => addIndent(s, indent + 1));
   }).flat().join("\n");
 
+  const varDecls = variables.map(v => {
+    return addIndent(`(local $${v} i32)`, indent + 1)
+  }).join("\n");
+
   const varAssign = f.body.vardefs.map(v => codeGenVars(v, withParamsAndVariables, indent + 1)).join("\n");
 
   const stmts = f.body.stmts.map(s => codeGenStmt(s, withParamsAndVariables, clsEnv, indent + 1)).flat();
-  // if (methodName && methodName.search("__init__") !== -1) {
-  //   stmts.
-  // }
+
   const stmtsBody = stmts.join("\n");
   const fname = methodName ? methodName : f.name;
   return [`(func $${fname} ${params} (result i32)`,
   addIndent(`(local $scratch i32)`, indent + 1),
   varDecls,
-  paramAssign,
+  paramWrap,
   varAssign,
   stmtsBody,
   addIndent(`(i32.const 0))`, indent + 1)].filter(s => s.length !== 0);
@@ -387,10 +359,8 @@ export function codeGenVars(v: VarDef<Type>, locals: Env, indent: number): strin
   if (locals.has(v.typedvar.name)) {
     if (v.typedvar.typ.refed) {
       // put on the heap
+      valStmts.unshift(`(global.get $heap)`)
       valStmts.push(
-        `(local.set $scratch)`,
-        `(global.get $heap)`,
-        `(local.get $scratch)`,
         `(i32.store)`,
         `(global.get $heap) ;; addr of the value`,
         `(global.get $heap)`,
@@ -413,8 +383,6 @@ export function codeGenCls(c: ClsDef<Type>, locals: Env, clsEnv: ClsEnv, indent:
       return codeGenFun(m, locals, clsEnv, indent);
     }
   }).flat();
-  // c.builtins.forEach((m, name) =>
-  //   methods.push(...codeGenFun(m, locals, clsEnv, indent, `${c.name}$${m.name}`)))
   locals.delete("self");
   return methods.flat();
 }
